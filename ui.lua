@@ -341,8 +341,16 @@ local Library do
 
             setmetatable(NewItem, Instances)
 
+            -- Perf: set Parent last so layout / rendering only invalidates once.
+            -- No visual / behaviour change, just fewer intermediate reflows.
+            local Parent = NewItem.Properties.Parent
             for Property, Value in NewItem.Properties do
-                NewItem.Instance[Property] = Value
+                if Property ~= "Parent" then
+                    NewItem.Instance[Property] = Value
+                end
+            end
+            if Parent ~= nil then
+                NewItem.Instance.Parent = Parent
             end
 
             return NewItem
@@ -795,9 +803,9 @@ local Library do
             Connection = nil
         }
 
-        Library:Thread(function()
-            NewConnection.Connection = Event:Connect(Callback)
-        end)
+        -- Perf / correctness: connect synchronously instead of spawning a
+        -- thread per connection. Same behaviour, no lost first-fire events.
+        NewConnection.Connection = Event:Connect(Callback)
 
         TableInsert(self.Connections, NewConnection)
         return NewConnection
@@ -3315,17 +3323,16 @@ end
                     ClearTextOnFocus = false
                 }):AddToTheme({TextColor3 = 'Text', PlaceholderColor3 = 'Subtext'})
                 
-                Items["SearchBox"].Instance:GetPropertyChangedSignal("Text"):Connect(function()
-                    local query = Items["SearchBox"].Instance.Text:lower()
-                    for _, opt in pairs(Dropdown.Options) do
-                        if query == "" or opt.Name:lower():find(query, 1, true) then
-                            opt.Button.Instance.Visible = true
-                        else
-                            opt.Button.Instance.Visible = false
-                        end
-                    end
-                end)
+                -- Search filtering is wired up after the Items block (see ApplyFilter below)
+                -- so layout + scroll stay in sync. No visual change here.
             end
+
+            -- Cached holder refs (perf: avoids FindFirstChildOfClass + table
+            -- lookups every frame / keystroke). No design change.
+            local OptionHolderInst = Items["OptionHolder"].Instance
+            local SearchBoxInst = Items["SearchBox"].Instance
+            local RealDropdownInst = Items["RealDropdown"].Instance
+            local ListLayoutInst = OptionHolderInst:FindFirstChildOfClass("UIListLayout")
 
             function Dropdown:Get()
                 return Dropdown.Value
@@ -3334,6 +3341,89 @@ end
             function Dropdown:SetVisibility(Bool)
                 Items["Dropdown"].Instance.Visible = Bool
             end
+
+            -- Recompute Size / CanvasSize from the current layout. Called from
+            -- layout-changed events + after filter / open / refresh. Keeps the
+            -- same sizing formula (content + 20, capped at 200) as before.
+            function Dropdown:SyncCanvas()
+                if ListLayoutInst == nil then
+                    return
+                end
+                local contentHeight = ListLayoutInst.AbsoluteContentSize.Y
+                if contentHeight <= 0 then
+                    return
+                end
+                local targetHeight = contentHeight + 20
+                if targetHeight > 200 then
+                    targetHeight = 200
+                end
+                local w = RealDropdownInst.AbsoluteSize.X
+                if w <= 0 then
+                    w = OptionHolderInst.Size.X.Offset
+                end
+                if w <= 0 then
+                    return
+                end
+                OptionHolderInst.Size = UDim2New(0, w, 0, targetHeight)
+                OptionHolderInst.CanvasSize = UDim2New(0, 0, 0, contentHeight + 20)
+                -- Clamp stale scroll offset so a previous scroll position can
+                -- never leave the list showing blank space after the content
+                -- shrinks (search / refresh) or grows.
+                local maxScroll = math.max(0, (contentHeight + 20) - targetHeight)
+                local cur = OptionHolderInst.CanvasPosition.Y
+                if cur > maxScroll then
+                    OptionHolderInst.CanvasPosition = Vector2New(0, maxScroll)
+                end
+            end
+
+            -- Show / hide options from the search query, then reset + resync
+            -- scroll. Resetting CanvasPosition is the main fix for the
+            -- "list appears empty after searching / scrolling" bug: without it
+            -- the holder keeps the old scroll offset into now-smaller content.
+            function Dropdown:ApplyFilter(resetScroll)
+                local query = StringLower(SearchBoxInst.Text)
+                if query == "" then
+                    for _, opt in pairs(Dropdown.Options) do
+                        local btn = opt.Button and opt.Button.Instance
+                        if btn and not btn.Visible then
+                            btn.Visible = true
+                        end
+                    end
+                else
+                    for _, opt in pairs(Dropdown.Options) do
+                        local lower = opt.LowerName or StringLower(opt.Name)
+                        local btn = opt.Button and opt.Button.Instance
+                        if btn then
+                            local show = lower:find(query, 1, true) ~= nil
+                            if btn.Visible ~= show then
+                                btn.Visible = show
+                            end
+                        end
+                    end
+                end
+                if resetScroll ~= false then
+                    OptionHolderInst.CanvasPosition = Vector2New(0, 0)
+                end
+                -- AbsoluteContentSize updates a frame late, so sync now (best
+                -- effort) and again once layout settles.
+                Dropdown:SyncCanvas()
+                task.defer(function()
+                    if not Library then
+                        return
+                    end
+                    Dropdown:SyncCanvas()
+                end)
+            end
+
+            Library:Connect(SearchBoxInst:GetPropertyChangedSignal("Text"), function()
+                Dropdown:ApplyFilter(true)
+            end)
+
+            Library:Connect(ListLayoutInst:GetPropertyChangedSignal("AbsoluteContentSize"), function()
+                if Dropdown.IsOpen then
+                    Dropdown:SyncCanvas()
+                end
+            end)
 
             local Debounce = false 
             local RenderStepped 
@@ -3349,34 +3439,49 @@ end
                 Debounce = true 
 
                 if Dropdown.IsOpen then 
-                    Items["SearchBox"].Instance.Text = ""
-                    Items["OptionHolder"].Instance.Visible = true
-                    Items["OptionHolder"].Instance.Parent = Library.Holder.Instance
+                    -- Clearing search must always restore items. Setting Text
+                    -- to "" does NOT fire when it is already "", so restore
+                    -- explicitly to fix "opens empty" cases.
+                    if SearchBoxInst.Text ~= "" then
+                        SearchBoxInst.Text = ""
+                    end
+                    for _, opt in pairs(Dropdown.Options) do
+                        local btn = opt.Button and opt.Button.Instance
+                        if btn and not btn.Visible then
+                            btn.Visible = true
+                        end
+                    end
+                    OptionHolderInst.CanvasPosition = Vector2New(0, 0)
+                    OptionHolderInst.Visible = true
+                    OptionHolderInst.Parent = Library.Holder.Instance
+                    Dropdown:SyncCanvas()
+                    task.defer(function()
+                        if Dropdown.IsOpen then
+                            Dropdown:SyncCanvas()
+                        end
+                    end)
                     
-                    local lastHeight = -1
-                    local lastWidth = -1
+                    -- Position-only follower. Size is event-driven now (see
+                    -- AbsoluteContentSize signal), so this loop stays cheap:
+                    -- cached instances, no per-frame FindFirstChildOfClass.
                     local lastPosX = -1
                     local lastPosY = -1
+                    local lastW = -1
                     RenderStepped = RunService.RenderStepped:Connect(function()
-                        local listLayout = Items["OptionHolder"].Instance:FindFirstChildOfClass("UIListLayout")
-                        local contentHeight = listLayout and listLayout.AbsoluteContentSize.Y or 0
-                        local targetHeight = math.min(contentHeight + 20, 200)
-                        
-                        local realPos = Items["RealDropdown"].Instance.AbsolutePosition
-                        local realSize = Items["RealDropdown"].Instance.AbsoluteSize
-
-                        if contentHeight ~= lastHeight or realSize.X ~= lastWidth then
-                            lastHeight = contentHeight
-                            lastWidth = realSize.X
-                            Items["OptionHolder"].Instance.Size = UDim2New(0, realSize.X, 0, targetHeight)
-                            Items["OptionHolder"].Instance.CanvasSize = UDim2New(0, 0, 0, contentHeight + 20)
-                        end
+                        local realPos = RealDropdownInst.AbsolutePosition
+                        local realSize = RealDropdownInst.AbsoluteSize
                         local posX = realPos.X - _guiInset.X
                         local posY = realPos.Y + realSize.Y + 4 - _guiInset.Y
-                        if posX ~= lastPosX or posY ~= lastPosY then
+                        if posX ~= lastPosX or posY ~= lastPosY or realSize.X ~= lastW then
                             lastPosX = posX
                             lastPosY = posY
-                            Items["OptionHolder"].Instance.Position = UDim2New(0, posX, 0, posY)
+                            lastW = realSize.X
+                            OptionHolderInst.Position = UDim2New(0, posX, 0, posY)
+                            -- Keep width glued without a full canvas recompute.
+                            local cur = OptionHolderInst.Size
+                            if cur.X.Offset ~= realSize.X then
+                                OptionHolderInst.Size = UDim2New(0, realSize.X, cur.Y.Scale, cur.Y.Offset)
+                            end
                         end
                     end)
 
@@ -3402,18 +3507,21 @@ end
                     end
                 end
 
-                local Descendants = Items["OptionHolder"].Instance:GetDescendants()
-                TableInsert(Descendants, Items["OptionHolder"].Instance)
+                local Descendants = OptionHolderInst:GetDescendants()
+                TableInsert(Descendants, OptionHolderInst)
 
                 for Index, Value in Descendants do 
-                    if not Value.ClassName:find("UI") then 
+                    if Value:IsA("GuiObject") then 
                         Value.ZIndex = Dropdown.IsOpen and 50 or 1
                     end
                 end
                 
                 Debounce = false 
-                Items["OptionHolder"].Instance.Visible = Dropdown.IsOpen
-                Items["OptionHolder"].Instance.Parent = not Dropdown.IsOpen and Library.UnusedHolder.Instance or Library.Holder.Instance
+                OptionHolderInst.Visible = Dropdown.IsOpen
+                OptionHolderInst.Parent = not Dropdown.IsOpen and Library.UnusedHolder.Instance or Library.Holder.Instance
+                if Dropdown.IsOpen then
+                    Dropdown:SyncCanvas()
+                end
             end
 
             function Dropdown:Set(Option)
@@ -3534,6 +3642,7 @@ end
                 local OptionData = {
                     Button = OptionButton,
                     Name = Option,
+                    LowerName = StringLower(tostring(Option)),
                     Liner = OptionLiner,
                     Glow = OptionGlow,
                     Text = OptionText,
@@ -3610,6 +3719,26 @@ end
                 end)
 
                 Dropdown.Options[OptionData.Name] = OptionData
+
+                -- New items must respect the active search + open-state ZIndex,
+                -- otherwise they pop in unfiltered / under other UI.
+                do
+                    local q = StringLower(SearchBoxInst.Text)
+                    if q ~= "" and not OptionData.LowerName:find(q, 1, true) then
+                        OptionButton.Instance.Visible = false
+                    end
+                    if Dropdown.IsOpen then
+                        OptionButton.Instance.ZIndex = 50
+                        if not Dropdown._Bulk then
+                            Dropdown:SyncCanvas()
+                            task.defer(function()
+                                if Dropdown.IsOpen then
+                                    Dropdown:SyncCanvas()
+                                end
+                            end)
+                        end
+                    end
+                end
                 return OptionData
             end
 
@@ -3617,16 +3746,43 @@ end
                 if Dropdown.Options[Option] then
                     Dropdown.Options[Option].Button:Clean()
                     Dropdown.Options[Option] = nil
+                    if Dropdown.IsOpen and not Dropdown._Bulk then
+                        Dropdown:SyncCanvas()
+                        task.defer(function()
+                            if Dropdown.IsOpen then
+                                Dropdown:SyncCanvas()
+                            end
+                        end)
+                    end
                 end
             end
 
             function Dropdown:Refresh(List)
-                for Index, Value in Dropdown.Options do 
-                    Dropdown:Remove(Value.Name)
+                -- Fix: never mutate Dropdown.Options while iterating it with
+                -- pairs (skips entries, leaves stale buttons). Collect first.
+                -- Bulk flag suppresses per-item canvas syncs; one sync at end.
+                Dropdown._Bulk = true
+                local toRemove = {}
+                for _, Value in pairs(Dropdown.Options) do
+                    TableInsert(toRemove, Value.Name)
+                end
+                for _, Name in ipairs(toRemove) do
+                    Dropdown:Remove(Name)
                 end
 
-                for Index, Value in List do 
+                for _, Value in ipairs(List) do
                     Dropdown:Add(Value)
+                end
+                Dropdown._Bulk = false
+
+                -- Re-apply current search + reset scroll so the refreshed list
+                -- never shows blank from a stale CanvasPosition / CanvasSize.
+                Dropdown:ApplyFilter(true)
+                if Dropdown.IsOpen then
+                    Dropdown:SyncCanvas()
+                    task.defer(function()
+                        Dropdown:SyncCanvas()
+                    end)
                 end
             end
 
