@@ -4638,13 +4638,36 @@ end
 local function DeserializeData(data)
     if type(data) == "table" then
         if data._type == "Color3" then
-            return Color3.new(data.R, data.G, data.B)
+            local r = tonumber(data.R) or 1
+            local g = tonumber(data.G) or 1
+            local b = tonumber(data.B) or 1
+            return Color3.new(math.clamp(r, 0, 1), math.clamp(g, 0, 1), math.clamp(b, 0, 1))
+        elseif data._type == "EnumItem" and type(data.Value) == "string" then
+            local eType, eName = data.Value:match("Enum%.(%w+)%.(%w+)")
+            if eType and eName and Enum[eType] and Enum[eType][eName] then
+                return Enum[eType][eName]
+            end
+            local keyName = data.Value:gsub("Enum%.KeyCode%.", ""):gsub("Enum%.UserInputType%.", "")
+            if Enum.KeyCode[keyName] then
+                return Enum.KeyCode[keyName]
+            end
+            return data.Value
+        elseif data.Color and type(data.Color) == "string" then
+            local hex = data.Color:gsub("#", "")
+            local s, c = pcall(function() return Color3.fromHex(hex) end)
+            if s and typeof(c) == "Color3" then return c end
+        elseif data.Key and type(data.Key) == "string" then
+            return data.Key
         end
         local t = {}
         for k, v in pairs(data) do
             t[k] = DeserializeData(v)
         end
         return t
+    elseif type(data) == "string" and data:sub(1, 1) == "#" and #data >= 7 then
+        local hex = data:gsub("#", "")
+        local s, c = pcall(function() return Color3.fromHex(hex) end)
+        if s and typeof(c) == "Color3" then return c end
     end
     return data
 end
@@ -4652,7 +4675,7 @@ end
 function Library:GetConfig()
     local data = {}
     for idx, val in pairs(Library.Flags) do
-        if idx ~= "config_Name_list" and idx ~= "config_Name_text" then
+        if idx ~= "config_Name_list" and idx ~= "config_Name_text" and idx ~= "Configs" and idx ~= "ConfigName" then
             data[idx] = SerializeData(val)
         end
     end
@@ -4660,18 +4683,38 @@ function Library:GetConfig()
 end
 
 function Library:LoadConfig(json)
+    if not json or json == "" then return false end
     local ok, data = pcall(function() return game:GetService("HttpService"):JSONDecode(json) end)
-    if not ok or type(data) ~= "table" then return end
-    for idx, val in pairs(data) do
-        if idx == "config_Name_list" or idx == "config_Name_text" then continue end
-        local decodedVal = DeserializeData(val)
-        Library.Flags[idx] = decodedVal
-        if Library.SetFlags and Library.SetFlags[idx] then
-            pcall(function()
-                Library.SetFlags[idx](decodedVal)
-            end)
+    if not ok or type(data) ~= "table" then return false end
+
+    Library.LoadingConfig = true
+    task.spawn(function()
+        local count = 0
+        for idx, val in pairs(data) do
+            if idx == "config_Name_list" or idx == "config_Name_text" or idx == "Configs" or idx == "ConfigName" then
+                continue
+            end
+            local decodedVal = DeserializeData(val)
+            Library.Flags[idx] = decodedVal
+            if Library.SetFlags and Library.SetFlags[idx] then
+                task.spawn(function()
+                    pcall(function()
+                        Library.SetFlags[idx](decodedVal)
+                    end)
+                end)
+            end
+            count = count + 1
+            if count % 3 == 0 then
+                task.wait()
+            end
         end
-    end
+        task.wait(0.1)
+        Library.LoadingConfig = false
+        if Library.Notifications and Library.Notifications.Create then
+            Library.Notifications:Create({Name = "Config applied successfully!", LifeTime = 3})
+        end
+    end)
+    return true
 end
 
 local ConfigDropdownRef
@@ -4680,7 +4723,7 @@ function Library:UpdateConfigList()
     local list = {}
     pcall(function()
         for _, file in listfiles(Library.ConfigFolder) do
-            local name = file:match("[/\\]([^/\\]+)%.cfg$")
+            local name = file:match("[/\\]([^/\\]+)%.cfg$") or file:match("[/\\]([^/\\]+)%.json$")
             if name then table.insert(list, name) end
         end
     end)
@@ -4744,14 +4787,22 @@ function Library:CreateSettingsPage(Window, Watermark)
                 Library.Notifications:Create({Name = "Please enter a config name!", LifeTime = 3})
                 return 
             end
-            local ok, err = pcall(function()
-                local content = readfile(Library.ConfigFolder .. "/" .. name .. ".cfg")
-                Library:LoadConfig(content)
-                Library.Notifications:Create({Name = "Loaded config: " .. name, LifeTime = 3})
+            local path = Library.ConfigFolder .. "/" .. name .. ".cfg"
+            if not isfile(path) then
+                path = Library.ConfigFolder .. "/" .. name .. ".json"
+            end
+            if not isfile(path) then
+                Library.Notifications:Create({Name = "Config file not found!", LifeTime = 3})
+                return
+            end
+            local ok, content = pcall(function()
+                return readfile(path)
             end)
-            if not ok then
-                warn("Failed to load config: " .. tostring(err))
-                Library.Notifications:Create({Name = "Load Error: Check F9", LifeTime = 4})
+            if ok and content and content ~= "" then
+                Library:LoadConfig(content)
+                Library.Notifications:Create({Name = "Loading config: " .. name, LifeTime = 3})
+            else
+                Library.Notifications:Create({Name = "Failed to read config!", LifeTime = 3})
             end
         end
     })
