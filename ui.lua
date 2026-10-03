@@ -2405,7 +2405,7 @@ end
                     SortOrder = Enum.SortOrder.LayoutOrder
                 })
                 
-                Items["Column"] = Instances:Create("ScrollingFrame", {
+                Items["Left"] = Instances:Create("ScrollingFrame", {
                     Parent = Items["Page"].Instance,
                     Name = "\0",
                     ScrollBarImageColor3 = FromRGB(0, 0, 0),
@@ -2420,7 +2420,7 @@ end
                 })
                 
                 Instances:Create("UIPadding", {
-                    Parent = Items["Column"].Instance,
+                    Parent = Items["Left"].Instance,
                     Name = "\0",
                     PaddingTop = UDimNew(0, 10),
                     PaddingBottom = UDimNew(0, 10),
@@ -2429,12 +2429,44 @@ end
                 })
                 
                 Instances:Create("UIListLayout", {
-                    Parent = Items["Column"].Instance,
+                    Parent = Items["Left"].Instance,
                     Name = "\0",
                     Padding = UDimNew(0, 10),
                     SortOrder = Enum.SortOrder.LayoutOrder
-                })           
+                })
+
+                Items["Right"] = Instances:Create("ScrollingFrame", {
+                    Parent = Items["Page"].Instance,
+                    Name = "\0",
+                    ScrollBarImageColor3 = FromRGB(0, 0, 0),
+                    Active = true,
+                    AutomaticCanvasSize = Enum.AutomaticSize.Y,
+                    ScrollBarThickness = 0,
+                    BackgroundTransparency = 1,
+                    Size = UDim2New(1, 0, 1, 0),
+                    BorderColor3 = FromRGB(0, 0, 0),
+                    BorderSizePixel = 0,
+                    CanvasSize = UDim2New(0, 0, 0, 0),
+                    Visible = false
+                })
                 
+                Instances:Create("UIPadding", {
+                    Parent = Items["Right"].Instance,
+                    Name = "\0",
+                    PaddingTop = UDimNew(0, 10),
+                    PaddingBottom = UDimNew(0, 10),
+                    PaddingRight = UDimNew(0, 10),
+                    PaddingLeft = UDimNew(0, 10)
+                })
+                
+                Instances:Create("UIListLayout", {
+                    Parent = Items["Right"].Instance,
+                    Name = "\0",
+                    Padding = UDimNew(0, 10),
+                    SortOrder = Enum.SortOrder.LayoutOrder
+                })
+
+                Items["Column"] = Items["Left"]
                 Page.Items = Items
             end
 
@@ -2506,9 +2538,18 @@ end
                 Items = { }
             }
 
+            local targetCol = Section.Page.Items["Left"] or Section.Page.Items["Column"]
+            local sideStr = tostring(Section.Side):lower()
+            if sideStr == "right" or sideStr == "2" then
+                if Section.Page.Items["Right"] then
+                    targetCol = Section.Page.Items["Right"]
+                    targetCol.Instance.Visible = true
+                end
+            end
+
             local Items = { } do
                 Items["SectionOutline"] = Instances:Create("Frame", {
-                    Parent = Section.Page.Items["Column"].Instance,
+                    Parent = targetCol.Instance,
                     Name = "\0",
                     Size = UDim2New(1, 0, 0, 50),
                     BorderColor3 = FromRGB(0, 0, 0),
@@ -4619,6 +4660,9 @@ Library.ConfigFolder = Library.Directory .. "/configs"
 
 pcall(function() makefolder(Library.Directory) end)
 pcall(function() makefolder(Library.ConfigFolder) end)
+pcall(function() makefolder("External") end)
+pcall(function() makefolder("External/configs") end)
+pcall(function() makefolder("ExternalConfigs") end)
 
 local function SerializeData(data)
     if typeof(data) == "Color3" then
@@ -4687,6 +4731,10 @@ function Library:LoadConfig(json)
     local ok, data = pcall(function() return game:GetService("HttpService"):JSONDecode(json) end)
     if not ok or type(data) ~= "table" then return false end
 
+    if data.Flags and type(data.Flags) == "table" then
+        data = data.Flags
+    end
+
     Library.LoadingConfig = true
     task.spawn(function()
         local count = 0
@@ -4718,15 +4766,39 @@ function Library:LoadConfig(json)
 end
 
 local ConfigDropdownRef
+local ConfigPaths = {}
+
 function Library:UpdateConfigList()
     if not ConfigDropdownRef then return end
     local list = {}
-    pcall(function()
-        for _, file in listfiles(Library.ConfigFolder) do
-            local name = file:match("[/\\]([^/\\]+)%.cfg$") or file:match("[/\\]([^/\\]+)%.json$")
-            if name then table.insert(list, name) end
-        end
-    end)
+    local seen = {}
+    ConfigPaths = {}
+
+    local folders = {
+        Library.ConfigFolder,
+        "External_Loader/configs",
+        "External/configs",
+        "ExternalConfigs"
+    }
+
+    for _, folder in ipairs(folders) do
+        pcall(function()
+            if (isfolder and isfolder(folder)) or listfiles then
+                local files = listfiles(folder) or {}
+                for _, file in ipairs(files) do
+                    local name = file:match("([^/\\]+)%.cfg$") or file:match("([^/\\]+)%.json$")
+                    if name and not seen[name] then
+                        seen[name] = true
+                        table.insert(list, name)
+                        ConfigPaths[name] = file
+                    end
+                end
+            end
+        end)
+    end
+
+    table.sort(list, function(a, b) return a:lower() < b:lower() end)
+
     if ConfigDropdownRef.Refresh then
         ConfigDropdownRef:Refresh(list)
     elseif ConfigDropdownRef.RefreshOptions then
@@ -4767,8 +4839,9 @@ function Library:CreateSettingsPage(Window, Watermark)
                 Library.Notifications:Create({Name = "Please enter a config name!", LifeTime = 3})
                 return 
             end
+            local targetPath = ConfigPaths[name] or (Library.ConfigFolder .. "/" .. name .. ".cfg")
             local ok, err = pcall(function()
-                writefile(Library.ConfigFolder .. "/" .. name .. ".cfg", Library:GetConfig())
+                writefile(targetPath, Library:GetConfig())
                 Library.Notifications:Create({Name = "Saved config: " .. name, LifeTime = 3})
             end)
             if not ok then
@@ -4784,14 +4857,29 @@ function Library:CreateSettingsPage(Window, Watermark)
         Callback = function()
             local name = Library.Flags["config_Name_text"]
             if not name or name == "" then
-                Library.Notifications:Create({Name = "Please enter a config name!", LifeTime = 3})
+                Library.Notifications:Create({Name = "Please enter or select a config name!", LifeTime = 3})
                 return 
             end
-            local path = Library.ConfigFolder .. "/" .. name .. ".cfg"
-            if not isfile(path) then
-                path = Library.ConfigFolder .. "/" .. name .. ".json"
+            local path = ConfigPaths[name]
+            if not path or not isfile(path) then
+                local candidates = {
+                    Library.ConfigFolder .. "/" .. name .. ".cfg",
+                    Library.ConfigFolder .. "/" .. name .. ".json",
+                    "External_Loader/configs/" .. name .. ".cfg",
+                    "External_Loader/configs/" .. name .. ".json",
+                    "External/configs/" .. name .. ".cfg",
+                    "External/configs/" .. name .. ".json",
+                    "ExternalConfigs/" .. name .. ".json",
+                    "ExternalConfigs/" .. name .. ".cfg"
+                }
+                for _, cand in ipairs(candidates) do
+                    if isfile(cand) then
+                        path = cand
+                        break
+                    end
+                end
             end
-            if not isfile(path) then
+            if not path or not isfile(path) then
                 Library.Notifications:Create({Name = "Config file not found!", LifeTime = 3})
                 return
             end
@@ -4815,11 +4903,27 @@ function Library:CreateSettingsPage(Window, Watermark)
                 Library.Notifications:Create({Name = "Please enter a config name!", LifeTime = 3})
                 return 
             end
-            pcall(function()
-                delfile(Library.ConfigFolder .. "/" .. name .. ".cfg")
-                Library.Notifications:Create({Name = "Deleted config: " .. name, LifeTime = 3})
-            end)
+            local path = ConfigPaths[name]
+            if path and isfile(path) then
+                pcall(function() delfile(path) end)
+            end
+            pcall(function() delfile(Library.ConfigFolder .. "/" .. name .. ".cfg") end)
+            pcall(function() delfile(Library.ConfigFolder .. "/" .. name .. ".json") end)
+            pcall(function() delfile("External_Loader/configs/" .. name .. ".cfg") end)
+            pcall(function() delfile("External_Loader/configs/" .. name .. ".json") end)
+            pcall(function() delfile("External/configs/" .. name .. ".cfg") end)
+            pcall(function() delfile("External/configs/" .. name .. ".json") end)
+            pcall(function() delfile("ExternalConfigs/" .. name .. ".json") end)
+            Library.Notifications:Create({Name = "Deleted config: " .. name, LifeTime = 3})
             Library:UpdateConfigList()
+        end
+    })
+
+    ConfigSection:Button({
+        Name = "Refresh List",
+        Callback = function()
+            Library:UpdateConfigList()
+            Library.Notifications:Create({Name = "Refreshed config list!", LifeTime = 2})
         end
     })
 
@@ -5109,16 +5213,6 @@ function Library:CreateSettingsPage(Window, Watermark)
     local MiscSection = Page:Section({Name = "Miscellaneous", Side = "Right"})
 
     MiscSection:Button({
-        Name = "Copy Discord Link",
-        Callback = function()
-            if setclipboard then
-                setclipboard("https://discord.gg/XFcesXdeb")
-                Library.Notifications:Create({Name = "Copied Discord Link to Clipboard!", LifeTime = 3})
-            end
-        end
-    })
-
-    MiscSection:Button({
         Name = "Unload UI",
         Callback = function()
             Library.Notifications:Create({Name = "Unloading UI...", LifeTime = 3})
@@ -5127,6 +5221,10 @@ function Library:CreateSettingsPage(Window, Watermark)
     })
 
     return Page
+end
+
+Library.Configs = function(self, Window)
+    return self:CreateSettingsPage(Window)
 end
 
 getgenv().Library = Library
