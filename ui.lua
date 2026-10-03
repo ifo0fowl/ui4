@@ -2544,6 +2544,10 @@ end
                 if Section.Page.Items["Right"] then
                     targetCol = Section.Page.Items["Right"]
                     targetCol.Instance.Visible = true
+                    if Section.Page.Items["Left"] then
+                        Section.Page.Items["Left"].Instance.Size = UDim2New(0.5, -5, 1, 0)
+                    end
+                    Section.Page.Items["Right"].Instance.Size = UDim2New(0.5, -5, 1, 0)
                 end
             end
 
@@ -3866,6 +3870,13 @@ end
                 Dropdown:Set(Value)
             end
 
+            Dropdown.RefreshOptions = function(self, list)
+                return Dropdown:Refresh(list)
+            end
+            Dropdown.SetOptions = function(self, list)
+                return Dropdown:Refresh(list)
+            end
+
             return Dropdown
         end
 
@@ -4146,101 +4157,9 @@ end
     local HttpService = game:GetService("HttpService")
 
     Library.CreateSettingsPage = function(self, Window, Watermark)
-        local SettingsPage = Window:Page({Name = "Settings", Icon = "rbxassetid://128742673777519"})
-
-        do
-            local ThemingSection = SettingsPage:Section({Name = "Theming", Icon = "rbxassetid://73803440257131"})
-
-            do
-                for Index, Value in Library.Theme do 
-                    ThemingSection:Label(Index):Colorpicker({
-                        Flag = Index.."_ThemingThing",
-                        Default = Value,
-                        Alpha = 0,
-                        Callback = function(Value)
-                            Library.Theme[Index] = Value
-                            Library:ChangeTheme(Index, Value)
-                        end
-                    })
-                end
-            end
-
-            local ConfigsSection = SettingsPage:Section({Name = "Configs", Icon = "rbxassetid://74885853379841"}) do 
-                local ConfigName
-                local ConfigSelected
-    
-                local ConfigsDropdown = ConfigsSection:Dropdown({
-                    Name = "Configs", 
-                    Flag = "Configs",
-                    Items = { }, 
-                    Multi = false,
-                    MaxSize = 120,
-                    Callback = function(Value)
-                        ConfigSelected = Value
-                    end
-                })
-    
-                ConfigsSection:Textbox({
-                    Name = "Config name",
-                    Placeholder = "Config name",
-                    Flag = "ConfigName",
-                    Callback = function(Value)
-                        ConfigName = Value
-                    end
-                })
-    
-                ConfigsSection:Button({
-                    Name = "Create",
-                    Callback = function()
-                        if ConfigName and ConfigName ~= "" then
-                            if not isfile(Library.Folders.Configs .. "/" .. ConfigName .. ".json") then
-                                writefile(Library.Folders.Configs .. "/" .. ConfigName .. ".json", Library:GetConfig())
-                                Library:RefreshConfigsList(ConfigsDropdown)
-                            end
-                        end
-                    end
-                })
-    
-                ConfigsSection:Button({
-                    Name = "Load",
-                    Callback = function()
-                        if ConfigSelected and ConfigSelected ~= "" then
-                            Library:LoadConfig(readfile(Library.Folders.Configs .. "/" .. ConfigSelected..".json"))
-                        end
-                    end
-                })
-    
-                ConfigsSection:Button({
-                    Name = "Save",
-                    Callback = function()
-                        if ConfigSelected and ConfigSelected ~= "" then
-                            writefile(Library.Folders.Configs .. "/" .. ConfigSelected..".json", Library:GetConfig())
-                        end
-                    end
-                })
-    
-                ConfigsSection:Button({
-                    Name = "Delete",
-                    Callback = function()
-                        if ConfigSelected and ConfigSelected ~= "" then
-                            delfile(Library.Folders.Configs .. "/" .. ConfigSelected..".json")
-                            Library:RefreshConfigsList(ConfigsDropdown)
-                        end
-                    end
-                })
-    
-                ConfigsSection:Button({
-                    Name = "Refresh",
-                    Callback = function()
-                        Library:RefreshConfigsList(ConfigsDropdown)
-                    end
-                })
-    
-                Library:RefreshConfigsList(ConfigsDropdown)
-            end
+        if self._RealCreateSettingsPage then
+            return self:_RealCreateSettingsPage(Window, Watermark)
         end
-
-        return SettingsPage
     end
 end
 
@@ -4323,7 +4242,11 @@ Library.Window = function(self, Data)
         Data.WatermarkLogo = self:ResolveIcon(Data.WatermarkLogo)
     end
 
-    return OriginalWindowFunction(self, Data)
+    local win = OriginalWindowFunction(self, Data)
+    win.Tab = win.Page
+    win.CreateTab = win.Page
+    win.CreatePage = win.Page
+    return win
 end
 
 local OriginalSectionFunction = Library.Pages.Section
@@ -4395,6 +4318,7 @@ Library.CreateWindow = function(self, Data)
         return Page
     end
 
+    Window.Tab = WrappedPage
     Window.Page = WrappedPage
     Window.CreateTab = WrappedPage
     Window.CreatePage = WrappedPage
@@ -4402,8 +4326,10 @@ Library.CreateWindow = function(self, Data)
     return Window
 end
 
+Library.Tab = Library.Page
 Library.CreateTab = Library.Page
 Library.Pages.CreateSection = Library.Pages.Section
+Library.Pages.Section = Library.Pages.Section
 
 Library.Sections.CreateButton = Library.Sections.Button
 Library.Sections.CreateToggle = Library.Sections.Toggle
@@ -4411,6 +4337,11 @@ Library.Sections.CreateSlider = Library.Sections.Slider
 Library.Sections.CreateDropdown = Library.Sections.Dropdown
 Library.Sections.CreateTextbox = Library.Sections.Textbox
 Library.Sections.CreateLabel = Library.Sections.Label
+Library.Sections.Keybind = function(self, Data)
+    Data = Data or {}
+    local lbl = self:Label(Data.Name or Data.name or "Keybind")
+    return lbl:Keybind(Data)
+end
 
 local function NormalizeNamedData(NameOrData, Icon)
     if type(NameOrData) == "table" then
@@ -4778,12 +4709,16 @@ function Library:UpdateConfigList()
         Library.ConfigFolder,
         "External_Loader/configs",
         "External/configs",
-        "ExternalConfigs"
+        "ExternalConfigs",
+        "External_Loader",
+        "External",
+        "Valley_Loader/configs"
     }
 
     for _, folder in ipairs(folders) do
         pcall(function()
-            if (isfolder and isfolder(folder)) or listfiles then
+            if isfolder and not isfolder(folder) then return end
+            if listfiles then
                 local files = listfiles(folder) or {}
                 for _, file in ipairs(files) do
                     local name = file:match("([^/\\]+)%.cfg$") or file:match("([^/\\]+)%.json$")
@@ -4810,6 +4745,7 @@ function Library:CreateSettingsPage(Window, Watermark)
     local Page = Window:Page({Name = "Settings", Icon = "rbxassetid://10734898592"})
 
     local ConfigSection = Page:Section({Name = "Configs", Side = "Left"})
+    local ConfigNameBox
 
     ConfigDropdownRef = ConfigSection:Dropdown({
         Name = "Available Configs",
@@ -4819,17 +4755,24 @@ function Library:CreateSettingsPage(Window, Watermark)
             if Library.Flags then
                 Library.Flags["config_Name_text"] = option
             end
+            if ConfigNameBox and ConfigNameBox.Set then
+                ConfigNameBox:Set(option)
+            end
+        end
+    })
+
+    ConfigNameBox = ConfigSection:Textbox({
+        Name = "Config Name",
+        Flag = "config_Name_text",
+        Placeholder = "Enter config name...",
+        Callback = function(val)
+            if Library.Flags then
+                Library.Flags["config_Name_text"] = val
+            end
         end
     })
 
     Library:UpdateConfigList()
-
-    ConfigSection:Textbox({
-        Name = "Config Name",
-        Flag = "config_Name_text",
-        Placeholder = "Enter config name...",
-        Callback = function() end
-    })
 
     ConfigSection:Button({
         Name = "Save Config",
