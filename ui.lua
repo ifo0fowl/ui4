@@ -2405,7 +2405,7 @@ end
                     SortOrder = Enum.SortOrder.LayoutOrder
                 })
                 
-                Items["Left"] = Instances:Create("ScrollingFrame", {
+                Items["Column"] = Instances:Create("ScrollingFrame", {
                     Parent = Items["Page"].Instance,
                     Name = "\0",
                     ScrollBarImageColor3 = FromRGB(0, 0, 0),
@@ -2420,7 +2420,7 @@ end
                 })
                 
                 Instances:Create("UIPadding", {
-                    Parent = Items["Left"].Instance,
+                    Parent = Items["Column"].Instance,
                     Name = "\0",
                     PaddingTop = UDimNew(0, 10),
                     PaddingBottom = UDimNew(0, 10),
@@ -2429,44 +2429,12 @@ end
                 })
                 
                 Instances:Create("UIListLayout", {
-                    Parent = Items["Left"].Instance,
+                    Parent = Items["Column"].Instance,
                     Name = "\0",
                     Padding = UDimNew(0, 10),
                     SortOrder = Enum.SortOrder.LayoutOrder
-                })
-
-                Items["Right"] = Instances:Create("ScrollingFrame", {
-                    Parent = Items["Page"].Instance,
-                    Name = "\0",
-                    ScrollBarImageColor3 = FromRGB(0, 0, 0),
-                    Active = true,
-                    AutomaticCanvasSize = Enum.AutomaticSize.Y,
-                    ScrollBarThickness = 0,
-                    BackgroundTransparency = 1,
-                    Size = UDim2New(1, 0, 1, 0),
-                    BorderColor3 = FromRGB(0, 0, 0),
-                    BorderSizePixel = 0,
-                    CanvasSize = UDim2New(0, 0, 0, 0),
-                    Visible = false
-                })
+                })           
                 
-                Instances:Create("UIPadding", {
-                    Parent = Items["Right"].Instance,
-                    Name = "\0",
-                    PaddingTop = UDimNew(0, 10),
-                    PaddingBottom = UDimNew(0, 10),
-                    PaddingRight = UDimNew(0, 10),
-                    PaddingLeft = UDimNew(0, 10)
-                })
-                
-                Instances:Create("UIListLayout", {
-                    Parent = Items["Right"].Instance,
-                    Name = "\0",
-                    Padding = UDimNew(0, 10),
-                    SortOrder = Enum.SortOrder.LayoutOrder
-                })
-
-                Items["Column"] = Items["Left"]
                 Page.Items = Items
             end
 
@@ -2538,22 +2506,9 @@ end
                 Items = { }
             }
 
-            local targetCol = Section.Page.Items["Left"] or Section.Page.Items["Column"]
-            local sideStr = tostring(Section.Side):lower()
-            if sideStr == "right" or sideStr == "2" then
-                if Section.Page.Items["Right"] then
-                    targetCol = Section.Page.Items["Right"]
-                    targetCol.Instance.Visible = true
-                    if Section.Page.Items["Left"] then
-                        Section.Page.Items["Left"].Instance.Size = UDim2New(0.5, -5, 1, 0)
-                    end
-                    Section.Page.Items["Right"].Instance.Size = UDim2New(0.5, -5, 1, 0)
-                end
-            end
-
             local Items = { } do
                 Items["SectionOutline"] = Instances:Create("Frame", {
-                    Parent = targetCol.Instance,
+                    Parent = Section.Page.Items["Column"].Instance,
                     Name = "\0",
                     Size = UDim2New(1, 0, 0, 50),
                     BorderColor3 = FromRGB(0, 0, 0),
@@ -3870,13 +3825,6 @@ end
                 Dropdown:Set(Value)
             end
 
-            Dropdown.RefreshOptions = function(self, list)
-                return Dropdown:Refresh(list)
-            end
-            Dropdown.SetOptions = function(self, list)
-                return Dropdown:Refresh(list)
-            end
-
             return Dropdown
         end
 
@@ -4157,9 +4105,101 @@ end
     local HttpService = game:GetService("HttpService")
 
     Library.CreateSettingsPage = function(self, Window, Watermark)
-        if self._RealCreateSettingsPage then
-            return self:_RealCreateSettingsPage(Window, Watermark)
+        local SettingsPage = Window:Page({Name = "Settings", Icon = "rbxassetid://128742673777519"})
+
+        do
+            local ThemingSection = SettingsPage:Section({Name = "Theming", Icon = "rbxassetid://73803440257131"})
+
+            do
+                for Index, Value in Library.Theme do 
+                    ThemingSection:Label(Index):Colorpicker({
+                        Flag = Index.."_ThemingThing",
+                        Default = Value,
+                        Alpha = 0,
+                        Callback = function(Value)
+                            Library.Theme[Index] = Value
+                            Library:ChangeTheme(Index, Value)
+                        end
+                    })
+                end
+            end
+
+            local ConfigsSection = SettingsPage:Section({Name = "Configs", Icon = "rbxassetid://74885853379841"}) do 
+                local ConfigName
+                local ConfigSelected
+    
+                local ConfigsDropdown = ConfigsSection:Dropdown({
+                    Name = "Configs", 
+                    Flag = "Configs",
+                    Items = { }, 
+                    Multi = false,
+                    MaxSize = 120,
+                    Callback = function(Value)
+                        ConfigSelected = Value
+                    end
+                })
+    
+                ConfigsSection:Textbox({
+                    Name = "Config name",
+                    Placeholder = "Config name",
+                    Flag = "ConfigName",
+                    Callback = function(Value)
+                        ConfigName = Value
+                    end
+                })
+    
+                ConfigsSection:Button({
+                    Name = "Create",
+                    Callback = function()
+                        if ConfigName and ConfigName ~= "" then
+                            if not isfile(Library.Folders.Configs .. "/" .. ConfigName .. ".json") then
+                                writefile(Library.Folders.Configs .. "/" .. ConfigName .. ".json", Library:GetConfig())
+                                Library:RefreshConfigsList(ConfigsDropdown)
+                            end
+                        end
+                    end
+                })
+    
+                ConfigsSection:Button({
+                    Name = "Load",
+                    Callback = function()
+                        if ConfigSelected and ConfigSelected ~= "" then
+                            Library:LoadConfig(readfile(Library.Folders.Configs .. "/" .. ConfigSelected..".json"))
+                        end
+                    end
+                })
+    
+                ConfigsSection:Button({
+                    Name = "Save",
+                    Callback = function()
+                        if ConfigSelected and ConfigSelected ~= "" then
+                            writefile(Library.Folders.Configs .. "/" .. ConfigSelected..".json", Library:GetConfig())
+                        end
+                    end
+                })
+    
+                ConfigsSection:Button({
+                    Name = "Delete",
+                    Callback = function()
+                        if ConfigSelected and ConfigSelected ~= "" then
+                            delfile(Library.Folders.Configs .. "/" .. ConfigSelected..".json")
+                            Library:RefreshConfigsList(ConfigsDropdown)
+                        end
+                    end
+                })
+    
+                ConfigsSection:Button({
+                    Name = "Refresh",
+                    Callback = function()
+                        Library:RefreshConfigsList(ConfigsDropdown)
+                    end
+                })
+    
+                Library:RefreshConfigsList(ConfigsDropdown)
+            end
         end
+
+        return SettingsPage
     end
 end
 
@@ -4242,11 +4282,7 @@ Library.Window = function(self, Data)
         Data.WatermarkLogo = self:ResolveIcon(Data.WatermarkLogo)
     end
 
-    local win = OriginalWindowFunction(self, Data)
-    win.Tab = win.Page
-    win.CreateTab = win.Page
-    win.CreatePage = win.Page
-    return win
+    return OriginalWindowFunction(self, Data)
 end
 
 local OriginalSectionFunction = Library.Pages.Section
@@ -4318,7 +4354,6 @@ Library.CreateWindow = function(self, Data)
         return Page
     end
 
-    Window.Tab = WrappedPage
     Window.Page = WrappedPage
     Window.CreateTab = WrappedPage
     Window.CreatePage = WrappedPage
@@ -4326,10 +4361,8 @@ Library.CreateWindow = function(self, Data)
     return Window
 end
 
-Library.Tab = Library.Page
 Library.CreateTab = Library.Page
 Library.Pages.CreateSection = Library.Pages.Section
-Library.Pages.Section = Library.Pages.Section
 
 Library.Sections.CreateButton = Library.Sections.Button
 Library.Sections.CreateToggle = Library.Sections.Toggle
@@ -4337,11 +4370,6 @@ Library.Sections.CreateSlider = Library.Sections.Slider
 Library.Sections.CreateDropdown = Library.Sections.Dropdown
 Library.Sections.CreateTextbox = Library.Sections.Textbox
 Library.Sections.CreateLabel = Library.Sections.Label
-Library.Sections.Keybind = function(self, Data)
-    Data = Data or {}
-    local lbl = self:Label(Data.Name or Data.name or "Keybind")
-    return lbl:Keybind(Data)
-end
 
 local function NormalizeNamedData(NameOrData, Icon)
     if type(NameOrData) == "table" then
@@ -4591,9 +4619,6 @@ Library.ConfigFolder = Library.Directory .. "/configs"
 
 pcall(function() makefolder(Library.Directory) end)
 pcall(function() makefolder(Library.ConfigFolder) end)
-pcall(function() makefolder("External") end)
-pcall(function() makefolder("External/configs") end)
-pcall(function() makefolder("ExternalConfigs") end)
 
 local function SerializeData(data)
     if typeof(data) == "Color3" then
@@ -4613,36 +4638,13 @@ end
 local function DeserializeData(data)
     if type(data) == "table" then
         if data._type == "Color3" then
-            local r = tonumber(data.R) or 1
-            local g = tonumber(data.G) or 1
-            local b = tonumber(data.B) or 1
-            return Color3.new(math.clamp(r, 0, 1), math.clamp(g, 0, 1), math.clamp(b, 0, 1))
-        elseif data._type == "EnumItem" and type(data.Value) == "string" then
-            local eType, eName = data.Value:match("Enum%.(%w+)%.(%w+)")
-            if eType and eName and Enum[eType] and Enum[eType][eName] then
-                return Enum[eType][eName]
-            end
-            local keyName = data.Value:gsub("Enum%.KeyCode%.", ""):gsub("Enum%.UserInputType%.", "")
-            if Enum.KeyCode[keyName] then
-                return Enum.KeyCode[keyName]
-            end
-            return data.Value
-        elseif data.Color and type(data.Color) == "string" then
-            local hex = data.Color:gsub("#", "")
-            local s, c = pcall(function() return Color3.fromHex(hex) end)
-            if s and typeof(c) == "Color3" then return c end
-        elseif data.Key and type(data.Key) == "string" then
-            return data.Key
+            return Color3.new(data.R, data.G, data.B)
         end
         local t = {}
         for k, v in pairs(data) do
             t[k] = DeserializeData(v)
         end
         return t
-    elseif type(data) == "string" and data:sub(1, 1) == "#" and #data >= 7 then
-        local hex = data:gsub("#", "")
-        local s, c = pcall(function() return Color3.fromHex(hex) end)
-        if s and typeof(c) == "Color3" then return c end
     end
     return data
 end
@@ -4650,7 +4652,7 @@ end
 function Library:GetConfig()
     local data = {}
     for idx, val in pairs(Library.Flags) do
-        if idx ~= "config_Name_list" and idx ~= "config_Name_text" and idx ~= "Configs" and idx ~= "ConfigName" then
+        if idx ~= "config_Name_list" and idx ~= "config_Name_text" then
             data[idx] = SerializeData(val)
         end
     end
@@ -4658,82 +4660,30 @@ function Library:GetConfig()
 end
 
 function Library:LoadConfig(json)
-    if not json or json == "" then return false end
     local ok, data = pcall(function() return game:GetService("HttpService"):JSONDecode(json) end)
-    if not ok or type(data) ~= "table" then return false end
-
-    if data.Flags and type(data.Flags) == "table" then
-        data = data.Flags
+    if not ok or type(data) ~= "table" then return end
+    for idx, val in pairs(data) do
+        if idx == "config_Name_list" or idx == "config_Name_text" then continue end
+        local decodedVal = DeserializeData(val)
+        Library.Flags[idx] = decodedVal
+        if Library.SetFlags and Library.SetFlags[idx] then
+            pcall(function()
+                Library.SetFlags[idx](decodedVal)
+            end)
+        end
     end
-
-    Library.LoadingConfig = true
-    task.spawn(function()
-        local count = 0
-        for idx, val in pairs(data) do
-            if idx == "config_Name_list" or idx == "config_Name_text" or idx == "Configs" or idx == "ConfigName" then
-                continue
-            end
-            local decodedVal = DeserializeData(val)
-            Library.Flags[idx] = decodedVal
-            if Library.SetFlags and Library.SetFlags[idx] then
-                task.spawn(function()
-                    pcall(function()
-                        Library.SetFlags[idx](decodedVal)
-                    end)
-                end)
-            end
-            count = count + 1
-            if count % 3 == 0 then
-                task.wait()
-            end
-        end
-        task.wait(0.1)
-        Library.LoadingConfig = false
-        if Library.Notifications and Library.Notifications.Create then
-            Library.Notifications:Create({Name = "Config applied successfully!", LifeTime = 3})
-        end
-    end)
-    return true
 end
 
 local ConfigDropdownRef
-local ConfigPaths = {}
-
 function Library:UpdateConfigList()
     if not ConfigDropdownRef then return end
     local list = {}
-    local seen = {}
-    ConfigPaths = {}
-
-    local folders = {
-        Library.ConfigFolder,
-        "External_Loader/configs",
-        "External/configs",
-        "ExternalConfigs",
-        "External_Loader",
-        "External",
-        "Valley_Loader/configs"
-    }
-
-    for _, folder in ipairs(folders) do
-        pcall(function()
-            if isfolder and not isfolder(folder) then return end
-            if listfiles then
-                local files = listfiles(folder) or {}
-                for _, file in ipairs(files) do
-                    local name = file:match("([^/\\]+)%.cfg$") or file:match("([^/\\]+)%.json$")
-                    if name and not seen[name] then
-                        seen[name] = true
-                        table.insert(list, name)
-                        ConfigPaths[name] = file
-                    end
-                end
-            end
-        end)
-    end
-
-    table.sort(list, function(a, b) return a:lower() < b:lower() end)
-
+    pcall(function()
+        for _, file in listfiles(Library.ConfigFolder) do
+            local name = file:match("[/\\]([^/\\]+)%.cfg$")
+            if name then table.insert(list, name) end
+        end
+    end)
     if ConfigDropdownRef.Refresh then
         ConfigDropdownRef:Refresh(list)
     elseif ConfigDropdownRef.RefreshOptions then
@@ -4745,7 +4695,6 @@ function Library:CreateSettingsPage(Window, Watermark)
     local Page = Window:Page({Name = "Settings", Icon = "rbxassetid://10734898592"})
 
     local ConfigSection = Page:Section({Name = "Configs", Side = "Left"})
-    local ConfigNameBox
 
     ConfigDropdownRef = ConfigSection:Dropdown({
         Name = "Available Configs",
@@ -4755,24 +4704,17 @@ function Library:CreateSettingsPage(Window, Watermark)
             if Library.Flags then
                 Library.Flags["config_Name_text"] = option
             end
-            if ConfigNameBox and ConfigNameBox.Set then
-                ConfigNameBox:Set(option)
-            end
-        end
-    })
-
-    ConfigNameBox = ConfigSection:Textbox({
-        Name = "Config Name",
-        Flag = "config_Name_text",
-        Placeholder = "Enter config name...",
-        Callback = function(val)
-            if Library.Flags then
-                Library.Flags["config_Name_text"] = val
-            end
         end
     })
 
     Library:UpdateConfigList()
+
+    ConfigSection:Textbox({
+        Name = "Config Name",
+        Flag = "config_Name_text",
+        Placeholder = "Enter config name...",
+        Callback = function() end
+    })
 
     ConfigSection:Button({
         Name = "Save Config",
@@ -4782,9 +4724,8 @@ function Library:CreateSettingsPage(Window, Watermark)
                 Library.Notifications:Create({Name = "Please enter a config name!", LifeTime = 3})
                 return 
             end
-            local targetPath = ConfigPaths[name] or (Library.ConfigFolder .. "/" .. name .. ".cfg")
             local ok, err = pcall(function()
-                writefile(targetPath, Library:GetConfig())
+                writefile(Library.ConfigFolder .. "/" .. name .. ".cfg", Library:GetConfig())
                 Library.Notifications:Create({Name = "Saved config: " .. name, LifeTime = 3})
             end)
             if not ok then
@@ -4800,40 +4741,17 @@ function Library:CreateSettingsPage(Window, Watermark)
         Callback = function()
             local name = Library.Flags["config_Name_text"]
             if not name or name == "" then
-                Library.Notifications:Create({Name = "Please enter or select a config name!", LifeTime = 3})
+                Library.Notifications:Create({Name = "Please enter a config name!", LifeTime = 3})
                 return 
             end
-            local path = ConfigPaths[name]
-            if not path or not isfile(path) then
-                local candidates = {
-                    Library.ConfigFolder .. "/" .. name .. ".cfg",
-                    Library.ConfigFolder .. "/" .. name .. ".json",
-                    "External_Loader/configs/" .. name .. ".cfg",
-                    "External_Loader/configs/" .. name .. ".json",
-                    "External/configs/" .. name .. ".cfg",
-                    "External/configs/" .. name .. ".json",
-                    "ExternalConfigs/" .. name .. ".json",
-                    "ExternalConfigs/" .. name .. ".cfg"
-                }
-                for _, cand in ipairs(candidates) do
-                    if isfile(cand) then
-                        path = cand
-                        break
-                    end
-                end
-            end
-            if not path or not isfile(path) then
-                Library.Notifications:Create({Name = "Config file not found!", LifeTime = 3})
-                return
-            end
-            local ok, content = pcall(function()
-                return readfile(path)
-            end)
-            if ok and content and content ~= "" then
+            local ok, err = pcall(function()
+                local content = readfile(Library.ConfigFolder .. "/" .. name .. ".cfg")
                 Library:LoadConfig(content)
-                Library.Notifications:Create({Name = "Loading config: " .. name, LifeTime = 3})
-            else
-                Library.Notifications:Create({Name = "Failed to read config!", LifeTime = 3})
+                Library.Notifications:Create({Name = "Loaded config: " .. name, LifeTime = 3})
+            end)
+            if not ok then
+                warn("Failed to load config: " .. tostring(err))
+                Library.Notifications:Create({Name = "Load Error: Check F9", LifeTime = 4})
             end
         end
     })
@@ -4846,27 +4764,11 @@ function Library:CreateSettingsPage(Window, Watermark)
                 Library.Notifications:Create({Name = "Please enter a config name!", LifeTime = 3})
                 return 
             end
-            local path = ConfigPaths[name]
-            if path and isfile(path) then
-                pcall(function() delfile(path) end)
-            end
-            pcall(function() delfile(Library.ConfigFolder .. "/" .. name .. ".cfg") end)
-            pcall(function() delfile(Library.ConfigFolder .. "/" .. name .. ".json") end)
-            pcall(function() delfile("External_Loader/configs/" .. name .. ".cfg") end)
-            pcall(function() delfile("External_Loader/configs/" .. name .. ".json") end)
-            pcall(function() delfile("External/configs/" .. name .. ".cfg") end)
-            pcall(function() delfile("External/configs/" .. name .. ".json") end)
-            pcall(function() delfile("ExternalConfigs/" .. name .. ".json") end)
-            Library.Notifications:Create({Name = "Deleted config: " .. name, LifeTime = 3})
+            pcall(function()
+                delfile(Library.ConfigFolder .. "/" .. name .. ".cfg")
+                Library.Notifications:Create({Name = "Deleted config: " .. name, LifeTime = 3})
+            end)
             Library:UpdateConfigList()
-        end
-    })
-
-    ConfigSection:Button({
-        Name = "Refresh List",
-        Callback = function()
-            Library:UpdateConfigList()
-            Library.Notifications:Create({Name = "Refreshed config list!", LifeTime = 2})
         end
     })
 
@@ -5156,6 +5058,16 @@ function Library:CreateSettingsPage(Window, Watermark)
     local MiscSection = Page:Section({Name = "Miscellaneous", Side = "Right"})
 
     MiscSection:Button({
+        Name = "Copy Discord Link",
+        Callback = function()
+            if setclipboard then
+                setclipboard("https://discord.gg/XFcesXdeb")
+                Library.Notifications:Create({Name = "Copied Discord Link to Clipboard!", LifeTime = 3})
+            end
+        end
+    })
+
+    MiscSection:Button({
         Name = "Unload UI",
         Callback = function()
             Library.Notifications:Create({Name = "Unloading UI...", LifeTime = 3})
@@ -5164,10 +5076,6 @@ function Library:CreateSettingsPage(Window, Watermark)
     })
 
     return Page
-end
-
-Library.Configs = function(self, Window)
-    return self:CreateSettingsPage(Window)
 end
 
 getgenv().Library = Library
