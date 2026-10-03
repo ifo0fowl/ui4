@@ -2659,13 +2659,14 @@ end
                     TextColor3 = Library.Theme["Text"],
                     TextTransparency = 0.5,
                     Text = Toggle.Name,
-                    Size = UDim2New(0, 0, 0, 15),
+                    Size = UDim2New(1, -45, 0, 15),
                     AnchorPoint = Vector2New(0, 0.5),
                     BorderSizePixel = 0,
                     BackgroundTransparency = 1,
                     Position = UDim2New(0, 0, 0.5, 0),
                     BorderColor3 = FromRGB(0, 0, 0),
-                    AutomaticSize = Enum.AutomaticSize.X,
+                    TextXAlignment = Enum.TextXAlignment.Left,
+                    TextTruncate = Enum.TextTruncate.AtEnd,
                     TextSize = 16
                 }):AddToTheme({TextColor3 = 'Text'})
                 
@@ -2970,11 +2971,12 @@ end
                     BorderColor3 = FromRGB(0, 0, 0),
                     Text = Slider.Name,
                     AnchorPoint = Vector2New(0, 0.5),
-                    Size = UDim2New(0, 0, 0, 15),
+                    Size = UDim2New(0.5, -10, 0, 15),
                     BackgroundTransparency = 1,
                     Position = UDim2New(0, 0, 0.5, 0),
                     BorderSizePixel = 0,
-                    AutomaticSize = Enum.AutomaticSize.X,
+                    TextXAlignment = Enum.TextXAlignment.Left,
+                    TextTruncate = Enum.TextTruncate.AtEnd,
                     TextSize = 16
                 }):AddToTheme({TextColor3 = 'Text'})
                 
@@ -2987,7 +2989,7 @@ end
                     AutoButtonColor = false,
                     AnchorPoint = Vector2New(1, 0.5),
                     Position = UDim2New(1, -40, 0.5, 0),
-                    Size = UDim2New(0, 200, 0, 9),
+                    Size = UDim2New(0.5, 0, 0, 9),
                     Selectable = false,
                     BorderSizePixel = 0,
                     BackgroundColor3 = Library.Theme["Element"]
@@ -3078,13 +3080,14 @@ end
                     TextColor3 = Library.Theme["Text"],
                     TextTransparency = 0.5,
                     Text = "50%",
-                    Size = UDim2New(0, 0, 0, 15),
+                    Size = UDim2New(0, 36, 0, 15),
                     AnchorPoint = Vector2New(1, 0.5),
                     BorderSizePixel = 0,
                     BackgroundTransparency = 1,
                     Position = UDim2New(1, 0, 0.5, 0),
                     BorderColor3 = FromRGB(0, 0, 0),
-                    AutomaticSize = Enum.AutomaticSize.X,
+                    TextXAlignment = Enum.TextXAlignment.Right,
+                    TextTruncate = Enum.TextTruncate.AtEnd,
                     TextSize = 16
                 }):AddToTheme({TextColor3 = 'Text'})                
             end
@@ -4104,102 +4107,6 @@ end
     local TweenService = game:GetService("TweenService")
     local HttpService = game:GetService("HttpService")
 
-    Library.CreateSettingsPage = function(self, Window, Watermark)
-        local SettingsPage = Window:Page({Name = "Settings", Icon = "rbxassetid://128742673777519"})
-
-        do
-            local ThemingSection = SettingsPage:Section({Name = "Theming", Icon = "rbxassetid://73803440257131"})
-
-            do
-                for Index, Value in Library.Theme do 
-                    ThemingSection:Label(Index):Colorpicker({
-                        Flag = Index.."_ThemingThing",
-                        Default = Value,
-                        Alpha = 0,
-                        Callback = function(Value)
-                            Library.Theme[Index] = Value
-                            Library:ChangeTheme(Index, Value)
-                        end
-                    })
-                end
-            end
-
-            local ConfigsSection = SettingsPage:Section({Name = "Configs", Icon = "rbxassetid://74885853379841"}) do 
-                local ConfigName
-                local ConfigSelected
-    
-                local ConfigsDropdown = ConfigsSection:Dropdown({
-                    Name = "Configs", 
-                    Flag = "Configs",
-                    Items = { }, 
-                    Multi = false,
-                    MaxSize = 120,
-                    Callback = function(Value)
-                        ConfigSelected = Value
-                    end
-                })
-    
-                ConfigsSection:Textbox({
-                    Name = "Config name",
-                    Placeholder = "Config name",
-                    Flag = "ConfigName",
-                    Callback = function(Value)
-                        ConfigName = Value
-                    end
-                })
-    
-                ConfigsSection:Button({
-                    Name = "Create",
-                    Callback = function()
-                        if ConfigName and ConfigName ~= "" then
-                            if not isfile(Library.Folders.Configs .. "/" .. ConfigName .. ".json") then
-                                writefile(Library.Folders.Configs .. "/" .. ConfigName .. ".json", Library:GetConfig())
-                                Library:RefreshConfigsList(ConfigsDropdown)
-                            end
-                        end
-                    end
-                })
-    
-                ConfigsSection:Button({
-                    Name = "Load",
-                    Callback = function()
-                        if ConfigSelected and ConfigSelected ~= "" then
-                            Library:LoadConfig(readfile(Library.Folders.Configs .. "/" .. ConfigSelected..".json"))
-                        end
-                    end
-                })
-    
-                ConfigsSection:Button({
-                    Name = "Save",
-                    Callback = function()
-                        if ConfigSelected and ConfigSelected ~= "" then
-                            writefile(Library.Folders.Configs .. "/" .. ConfigSelected..".json", Library:GetConfig())
-                        end
-                    end
-                })
-    
-                ConfigsSection:Button({
-                    Name = "Delete",
-                    Callback = function()
-                        if ConfigSelected and ConfigSelected ~= "" then
-                            delfile(Library.Folders.Configs .. "/" .. ConfigSelected..".json")
-                            Library:RefreshConfigsList(ConfigsDropdown)
-                        end
-                    end
-                })
-    
-                ConfigsSection:Button({
-                    Name = "Refresh",
-                    Callback = function()
-                        Library:RefreshConfigsList(ConfigsDropdown)
-                    end
-                })
-    
-                Library:RefreshConfigsList(ConfigsDropdown)
-            end
-        end
-
-        return SettingsPage
     end
 end
 
