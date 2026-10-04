@@ -341,16 +341,8 @@ local Library do
 
             setmetatable(NewItem, Instances)
 
-            -- Perf: set Parent last so layout / rendering only invalidates once.
-            -- No visual / behaviour change, just fewer intermediate reflows.
-            local Parent = NewItem.Properties.Parent
             for Property, Value in NewItem.Properties do
-                if Property ~= "Parent" then
-                    NewItem.Instance[Property] = Value
-                end
-            end
-            if Parent ~= nil then
-                NewItem.Instance.Parent = Parent
+                NewItem.Instance[Property] = Value
             end
 
             return NewItem
@@ -803,9 +795,9 @@ local Library do
             Connection = nil
         }
 
-        -- Perf / correctness: connect synchronously instead of spawning a
-        -- thread per connection. Same behaviour, no lost first-fire events.
-        NewConnection.Connection = Event:Connect(Callback)
+        Library:Thread(function()
+            NewConnection.Connection = Event:Connect(Callback)
+        end)
 
         TableInsert(self.Connections, NewConnection)
         return NewConnection
@@ -2659,14 +2651,13 @@ end
                     TextColor3 = Library.Theme["Text"],
                     TextTransparency = 0.5,
                     Text = Toggle.Name,
-                    Size = UDim2New(1, -45, 0, 15),
+                    Size = UDim2New(0, 0, 0, 15),
                     AnchorPoint = Vector2New(0, 0.5),
                     BorderSizePixel = 0,
                     BackgroundTransparency = 1,
                     Position = UDim2New(0, 0, 0.5, 0),
                     BorderColor3 = FromRGB(0, 0, 0),
-                    TextXAlignment = Enum.TextXAlignment.Left,
-                    TextTruncate = Enum.TextTruncate.AtEnd,
+                    AutomaticSize = Enum.AutomaticSize.X,
                     TextSize = 16
                 }):AddToTheme({TextColor3 = 'Text'})
                 
@@ -2971,12 +2962,11 @@ end
                     BorderColor3 = FromRGB(0, 0, 0),
                     Text = Slider.Name,
                     AnchorPoint = Vector2New(0, 0.5),
-                    Size = UDim2New(0.5, -10, 0, 15),
+                    Size = UDim2New(0, 0, 0, 15),
                     BackgroundTransparency = 1,
                     Position = UDim2New(0, 0, 0.5, 0),
                     BorderSizePixel = 0,
-                    TextXAlignment = Enum.TextXAlignment.Left,
-                    TextTruncate = Enum.TextTruncate.AtEnd,
+                    AutomaticSize = Enum.AutomaticSize.X,
                     TextSize = 16
                 }):AddToTheme({TextColor3 = 'Text'})
                 
@@ -2989,7 +2979,7 @@ end
                     AutoButtonColor = false,
                     AnchorPoint = Vector2New(1, 0.5),
                     Position = UDim2New(1, -40, 0.5, 0),
-                    Size = UDim2New(0.5, 0, 0, 9),
+                    Size = UDim2New(0, 200, 0, 9),
                     Selectable = false,
                     BorderSizePixel = 0,
                     BackgroundColor3 = Library.Theme["Element"]
@@ -3080,14 +3070,13 @@ end
                     TextColor3 = Library.Theme["Text"],
                     TextTransparency = 0.5,
                     Text = "50%",
-                    Size = UDim2New(0, 36, 0, 15),
+                    Size = UDim2New(0, 0, 0, 15),
                     AnchorPoint = Vector2New(1, 0.5),
                     BorderSizePixel = 0,
                     BackgroundTransparency = 1,
                     Position = UDim2New(1, 0, 0.5, 0),
                     BorderColor3 = FromRGB(0, 0, 0),
-                    TextXAlignment = Enum.TextXAlignment.Right,
-                    TextTruncate = Enum.TextTruncate.AtEnd,
+                    AutomaticSize = Enum.AutomaticSize.X,
                     TextSize = 16
                 }):AddToTheme({TextColor3 = 'Text'})                
             end
@@ -3326,16 +3315,17 @@ end
                     ClearTextOnFocus = false
                 }):AddToTheme({TextColor3 = 'Text', PlaceholderColor3 = 'Subtext'})
                 
-                -- Search filtering is wired up after the Items block (see ApplyFilter below)
-                -- so layout + scroll stay in sync. No visual change here.
+                Items["SearchBox"].Instance:GetPropertyChangedSignal("Text"):Connect(function()
+                    local query = Items["SearchBox"].Instance.Text:lower()
+                    for _, opt in pairs(Dropdown.Options) do
+                        if query == "" or opt.Name:lower():find(query, 1, true) then
+                            opt.Button.Instance.Visible = true
+                        else
+                            opt.Button.Instance.Visible = false
+                        end
+                    end
+                end)
             end
-
-            -- Cached holder refs (perf: avoids FindFirstChildOfClass + table
-            -- lookups every frame / keystroke). No design change.
-            local OptionHolderInst = Items["OptionHolder"].Instance
-            local SearchBoxInst = Items["SearchBox"].Instance
-            local RealDropdownInst = Items["RealDropdown"].Instance
-            local ListLayoutInst = OptionHolderInst:FindFirstChildOfClass("UIListLayout")
 
             function Dropdown:Get()
                 return Dropdown.Value
@@ -3344,89 +3334,6 @@ end
             function Dropdown:SetVisibility(Bool)
                 Items["Dropdown"].Instance.Visible = Bool
             end
-
-            -- Recompute Size / CanvasSize from the current layout. Called from
-            -- layout-changed events + after filter / open / refresh. Keeps the
-            -- same sizing formula (content + 20, capped at 200) as before.
-            function Dropdown:SyncCanvas()
-                if ListLayoutInst == nil then
-                    return
-                end
-                local contentHeight = ListLayoutInst.AbsoluteContentSize.Y
-                if contentHeight <= 0 then
-                    return
-                end
-                local targetHeight = contentHeight + 20
-                if targetHeight > 200 then
-                    targetHeight = 200
-                end
-                local w = RealDropdownInst.AbsoluteSize.X
-                if w <= 0 then
-                    w = OptionHolderInst.Size.X.Offset
-                end
-                if w <= 0 then
-                    return
-                end
-                OptionHolderInst.Size = UDim2New(0, w, 0, targetHeight)
-                OptionHolderInst.CanvasSize = UDim2New(0, 0, 0, contentHeight + 20)
-                -- Clamp stale scroll offset so a previous scroll position can
-                -- never leave the list showing blank space after the content
-                -- shrinks (search / refresh) or grows.
-                local maxScroll = math.max(0, (contentHeight + 20) - targetHeight)
-                local cur = OptionHolderInst.CanvasPosition.Y
-                if cur > maxScroll then
-                    OptionHolderInst.CanvasPosition = Vector2New(0, maxScroll)
-                end
-            end
-
-            -- Show / hide options from the search query, then reset + resync
-            -- scroll. Resetting CanvasPosition is the main fix for the
-            -- "list appears empty after searching / scrolling" bug: without it
-            -- the holder keeps the old scroll offset into now-smaller content.
-            function Dropdown:ApplyFilter(resetScroll)
-                local query = StringLower(SearchBoxInst.Text)
-                if query == "" then
-                    for _, opt in pairs(Dropdown.Options) do
-                        local btn = opt.Button and opt.Button.Instance
-                        if btn and not btn.Visible then
-                            btn.Visible = true
-                        end
-                    end
-                else
-                    for _, opt in pairs(Dropdown.Options) do
-                        local lower = opt.LowerName or StringLower(opt.Name)
-                        local btn = opt.Button and opt.Button.Instance
-                        if btn then
-                            local show = lower:find(query, 1, true) ~= nil
-                            if btn.Visible ~= show then
-                                btn.Visible = show
-                            end
-                        end
-                    end
-                end
-                if resetScroll ~= false then
-                    OptionHolderInst.CanvasPosition = Vector2New(0, 0)
-                end
-                -- AbsoluteContentSize updates a frame late, so sync now (best
-                -- effort) and again once layout settles.
-                Dropdown:SyncCanvas()
-                task.defer(function()
-                    if not Library then
-                        return
-                    end
-                    Dropdown:SyncCanvas()
-                end)
-            end
-
-            Library:Connect(SearchBoxInst:GetPropertyChangedSignal("Text"), function()
-                Dropdown:ApplyFilter(true)
-            end)
-
-            Library:Connect(ListLayoutInst:GetPropertyChangedSignal("AbsoluteContentSize"), function()
-                if Dropdown.IsOpen then
-                    Dropdown:SyncCanvas()
-                end
-            end)
 
             local Debounce = false 
             local RenderStepped 
@@ -3442,49 +3349,34 @@ end
                 Debounce = true 
 
                 if Dropdown.IsOpen then 
-                    -- Clearing search must always restore items. Setting Text
-                    -- to "" does NOT fire when it is already "", so restore
-                    -- explicitly to fix "opens empty" cases.
-                    if SearchBoxInst.Text ~= "" then
-                        SearchBoxInst.Text = ""
-                    end
-                    for _, opt in pairs(Dropdown.Options) do
-                        local btn = opt.Button and opt.Button.Instance
-                        if btn and not btn.Visible then
-                            btn.Visible = true
-                        end
-                    end
-                    OptionHolderInst.CanvasPosition = Vector2New(0, 0)
-                    OptionHolderInst.Visible = true
-                    OptionHolderInst.Parent = Library.Holder.Instance
-                    Dropdown:SyncCanvas()
-                    task.defer(function()
-                        if Dropdown.IsOpen then
-                            Dropdown:SyncCanvas()
-                        end
-                    end)
+                    Items["SearchBox"].Instance.Text = ""
+                    Items["OptionHolder"].Instance.Visible = true
+                    Items["OptionHolder"].Instance.Parent = Library.Holder.Instance
                     
-                    -- Position-only follower. Size is event-driven now (see
-                    -- AbsoluteContentSize signal), so this loop stays cheap:
-                    -- cached instances, no per-frame FindFirstChildOfClass.
+                    local lastHeight = -1
+                    local lastWidth = -1
                     local lastPosX = -1
                     local lastPosY = -1
-                    local lastW = -1
                     RenderStepped = RunService.RenderStepped:Connect(function()
-                        local realPos = RealDropdownInst.AbsolutePosition
-                        local realSize = RealDropdownInst.AbsoluteSize
+                        local listLayout = Items["OptionHolder"].Instance:FindFirstChildOfClass("UIListLayout")
+                        local contentHeight = listLayout and listLayout.AbsoluteContentSize.Y or 0
+                        local targetHeight = math.min(contentHeight + 20, 200)
+                        
+                        local realPos = Items["RealDropdown"].Instance.AbsolutePosition
+                        local realSize = Items["RealDropdown"].Instance.AbsoluteSize
+
+                        if contentHeight ~= lastHeight or realSize.X ~= lastWidth then
+                            lastHeight = contentHeight
+                            lastWidth = realSize.X
+                            Items["OptionHolder"].Instance.Size = UDim2New(0, realSize.X, 0, targetHeight)
+                            Items["OptionHolder"].Instance.CanvasSize = UDim2New(0, 0, 0, contentHeight + 20)
+                        end
                         local posX = realPos.X - _guiInset.X
                         local posY = realPos.Y + realSize.Y + 4 - _guiInset.Y
-                        if posX ~= lastPosX or posY ~= lastPosY or realSize.X ~= lastW then
+                        if posX ~= lastPosX or posY ~= lastPosY then
                             lastPosX = posX
                             lastPosY = posY
-                            lastW = realSize.X
-                            OptionHolderInst.Position = UDim2New(0, posX, 0, posY)
-                            -- Keep width glued without a full canvas recompute.
-                            local cur = OptionHolderInst.Size
-                            if cur.X.Offset ~= realSize.X then
-                                OptionHolderInst.Size = UDim2New(0, realSize.X, cur.Y.Scale, cur.Y.Offset)
-                            end
+                            Items["OptionHolder"].Instance.Position = UDim2New(0, posX, 0, posY)
                         end
                     end)
 
@@ -3510,21 +3402,18 @@ end
                     end
                 end
 
-                local Descendants = OptionHolderInst:GetDescendants()
-                TableInsert(Descendants, OptionHolderInst)
+                local Descendants = Items["OptionHolder"].Instance:GetDescendants()
+                TableInsert(Descendants, Items["OptionHolder"].Instance)
 
                 for Index, Value in Descendants do 
-                    if Value:IsA("GuiObject") then 
+                    if not Value.ClassName:find("UI") then 
                         Value.ZIndex = Dropdown.IsOpen and 50 or 1
                     end
                 end
                 
                 Debounce = false 
-                OptionHolderInst.Visible = Dropdown.IsOpen
-                OptionHolderInst.Parent = not Dropdown.IsOpen and Library.UnusedHolder.Instance or Library.Holder.Instance
-                if Dropdown.IsOpen then
-                    Dropdown:SyncCanvas()
-                end
+                Items["OptionHolder"].Instance.Visible = Dropdown.IsOpen
+                Items["OptionHolder"].Instance.Parent = not Dropdown.IsOpen and Library.UnusedHolder.Instance or Library.Holder.Instance
             end
 
             function Dropdown:Set(Option)
@@ -3645,7 +3534,6 @@ end
                 local OptionData = {
                     Button = OptionButton,
                     Name = Option,
-                    LowerName = StringLower(tostring(Option)),
                     Liner = OptionLiner,
                     Glow = OptionGlow,
                     Text = OptionText,
@@ -3722,26 +3610,6 @@ end
                 end)
 
                 Dropdown.Options[OptionData.Name] = OptionData
-
-                -- New items must respect the active search + open-state ZIndex,
-                -- otherwise they pop in unfiltered / under other UI.
-                do
-                    local q = StringLower(SearchBoxInst.Text)
-                    if q ~= "" and not OptionData.LowerName:find(q, 1, true) then
-                        OptionButton.Instance.Visible = false
-                    end
-                    if Dropdown.IsOpen then
-                        OptionButton.Instance.ZIndex = 50
-                        if not Dropdown._Bulk then
-                            Dropdown:SyncCanvas()
-                            task.defer(function()
-                                if Dropdown.IsOpen then
-                                    Dropdown:SyncCanvas()
-                                end
-                            end)
-                        end
-                    end
-                end
                 return OptionData
             end
 
@@ -3749,43 +3617,16 @@ end
                 if Dropdown.Options[Option] then
                     Dropdown.Options[Option].Button:Clean()
                     Dropdown.Options[Option] = nil
-                    if Dropdown.IsOpen and not Dropdown._Bulk then
-                        Dropdown:SyncCanvas()
-                        task.defer(function()
-                            if Dropdown.IsOpen then
-                                Dropdown:SyncCanvas()
-                            end
-                        end)
-                    end
                 end
             end
 
             function Dropdown:Refresh(List)
-                -- Fix: never mutate Dropdown.Options while iterating it with
-                -- pairs (skips entries, leaves stale buttons). Collect first.
-                -- Bulk flag suppresses per-item canvas syncs; one sync at end.
-                Dropdown._Bulk = true
-                local toRemove = {}
-                for _, Value in pairs(Dropdown.Options) do
-                    TableInsert(toRemove, Value.Name)
-                end
-                for _, Name in ipairs(toRemove) do
-                    Dropdown:Remove(Name)
+                for Index, Value in Dropdown.Options do 
+                    Dropdown:Remove(Value.Name)
                 end
 
-                for _, Value in ipairs(List) do
+                for Index, Value in List do 
                     Dropdown:Add(Value)
-                end
-                Dropdown._Bulk = false
-
-                -- Re-apply current search + reset scroll so the refreshed list
-                -- never shows blank from a stale CanvasPosition / CanvasSize.
-                Dropdown:ApplyFilter(true)
-                if Dropdown.IsOpen then
-                    Dropdown:SyncCanvas()
-                    task.defer(function()
-                        Dropdown:SyncCanvas()
-                    end)
                 end
             end
 
@@ -4107,6 +3948,102 @@ end
     local TweenService = game:GetService("TweenService")
     local HttpService = game:GetService("HttpService")
 
+    Library.CreateSettingsPage = function(self, Window, Watermark)
+        local SettingsPage = Window:Page({Name = "Settings", Icon = "rbxassetid://128742673777519"})
+
+        do
+            local ThemingSection = SettingsPage:Section({Name = "Theming", Icon = "rbxassetid://73803440257131"})
+
+            do
+                for Index, Value in Library.Theme do 
+                    ThemingSection:Label(Index):Colorpicker({
+                        Flag = Index.."_ThemingThing",
+                        Default = Value,
+                        Alpha = 0,
+                        Callback = function(Value)
+                            Library.Theme[Index] = Value
+                            Library:ChangeTheme(Index, Value)
+                        end
+                    })
+                end
+            end
+
+            local ConfigsSection = SettingsPage:Section({Name = "Configs", Icon = "rbxassetid://74885853379841"}) do 
+                local ConfigName
+                local ConfigSelected
+    
+                local ConfigsDropdown = ConfigsSection:Dropdown({
+                    Name = "Configs", 
+                    Flag = "Configs",
+                    Items = { }, 
+                    Multi = false,
+                    MaxSize = 120,
+                    Callback = function(Value)
+                        ConfigSelected = Value
+                    end
+                })
+    
+                ConfigsSection:Textbox({
+                    Name = "Config name",
+                    Placeholder = "Config name",
+                    Flag = "ConfigName",
+                    Callback = function(Value)
+                        ConfigName = Value
+                    end
+                })
+    
+                ConfigsSection:Button({
+                    Name = "Create",
+                    Callback = function()
+                        if ConfigName and ConfigName ~= "" then
+                            if not isfile(Library.Folders.Configs .. "/" .. ConfigName .. ".json") then
+                                writefile(Library.Folders.Configs .. "/" .. ConfigName .. ".json", Library:GetConfig())
+                                Library:RefreshConfigsList(ConfigsDropdown)
+                            end
+                        end
+                    end
+                })
+    
+                ConfigsSection:Button({
+                    Name = "Load",
+                    Callback = function()
+                        if ConfigSelected and ConfigSelected ~= "" then
+                            Library:LoadConfig(readfile(Library.Folders.Configs .. "/" .. ConfigSelected..".json"))
+                        end
+                    end
+                })
+    
+                ConfigsSection:Button({
+                    Name = "Save",
+                    Callback = function()
+                        if ConfigSelected and ConfigSelected ~= "" then
+                            writefile(Library.Folders.Configs .. "/" .. ConfigSelected..".json", Library:GetConfig())
+                        end
+                    end
+                })
+    
+                ConfigsSection:Button({
+                    Name = "Delete",
+                    Callback = function()
+                        if ConfigSelected and ConfigSelected ~= "" then
+                            delfile(Library.Folders.Configs .. "/" .. ConfigSelected..".json")
+                            Library:RefreshConfigsList(ConfigsDropdown)
+                        end
+                    end
+                })
+    
+                ConfigsSection:Button({
+                    Name = "Refresh",
+                    Callback = function()
+                        Library:RefreshConfigsList(ConfigsDropdown)
+                    end
+                })
+    
+                Library:RefreshConfigsList(ConfigsDropdown)
+            end
+        end
+
+        return SettingsPage
     end
 end
 
@@ -4968,7 +4905,7 @@ function Library:CreateSettingsPage(Window, Watermark)
         Name = "Copy Discord Link",
         Callback = function()
             if setclipboard then
-                setclipboard("https://discord.gg/XFcesXdeb")
+                setclipboard("https://discord.gg/XG2xZkDbaF")
                 Library.Notifications:Create({Name = "Copied Discord Link to Clipboard!", LifeTime = 3})
             end
         end
