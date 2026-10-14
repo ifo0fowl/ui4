@@ -91,9 +91,10 @@ local function makeIcon(kind, size, color)
 	local w = New("Frame", {Size = UDim2.new(0, size, 0, size), BackgroundTransparency = 1, Name = "icon_" .. kind})
 	local c = size / 2
 	if kind == "explorer" then
-		rect(w, size * 0.52, size * 0.62, c - 2, c, color, 1)
-		rect(w, size * 0.52, size * 0.62, c + 2, c, Theme.Bright, 1)
-		rect(w, size * 0.44, size * 0.54, c + 2, c, Theme.Activity, 1)
+		local outer = rect(w, size * 0.66, size * 0.72, c, c, color, 2)
+		outer.BackgroundTransparency = 1
+		Stroke(color, 2, outer)
+		rect(w, 2, size * 0.6, c - 1, c, color, 0)
 	elseif kind == "search" then
 		local r = dot(w, size * 0.52, c - 2, c - 2, color)
 		r.BackgroundTransparency = 1
@@ -122,8 +123,9 @@ local function makeIcon(kind, size, color)
 		rect(w, 3, size * 0.7, c, c, color, 1)
 		rect(w, size * 0.55, 3, c, c, color, 1, 45)
 		rect(w, size * 0.55, 3, c, c, color, 1, -45)
-		local m = dot(w, size * 0.42, c, c, Theme.Activity)
-		m.BackgroundTransparency = 0
+		local m = dot(w, size * 0.42, c, c, color)
+		m.BackgroundTransparency = 1
+		m.Name = "ring"
 		Stroke(color, 2, m)
 	elseif kind == "file" then
 		rect(w, size * 0.55, size * 0.75, c, c, color, 1)
@@ -148,6 +150,20 @@ local function makeIcon(kind, size, color)
 		dot(w, size * 0.3, c, c, color)
 	end
 	return w
+end
+
+local function paintIcon(icon, color)
+	for _, d in ipairs(icon:GetDescendants()) do
+		if d:IsA("Frame") then
+			if d.BackgroundTransparency >= 1 then continue end
+			if d.Name == "cut" or d.Name == "ring" then continue end
+			d.BackgroundColor3 = color
+		elseif d:IsA("TextLabel") then
+			d.TextColor3 = color
+		elseif d:IsA("UIStroke") then
+			d.Color = color
+		end
+	end
 end
 
 function VSCode:CreateWindow(opt)
@@ -236,24 +252,22 @@ function VSCode:CreateWindow(opt)
 	local actIcons = {}
 	local acts = {{"explorer", "Explorer"}, {"search", "Search"}, {"source", "Source Control"}, {"run", "Run and Debug"}, {"ext", "Extensions"}}
 	for i, v in ipairs(acts) do
-		local b = New("TextButton", {Size = UDim2.new(1, 0, 0, 50), BackgroundTransparency = 1, Text = "", AutoButtonColor = false, Parent = Activity})
+		local b = New("TextButton", {Size = UDim2.new(1, 0, 0, 50), Position = UDim2.new(0, 0, 0, (i - 1) * 50), BackgroundTransparency = 1, Text = "", AutoButtonColor = false, Parent = Activity})
 		local ic = makeIcon(v[1], 21, i == 1 and Theme.Bright or Theme.Faint) ic.Position = UDim2.new(0.5, -10.5, 0.5, -10.5) ic.Parent = b
 		actIcons[b] = ic
 		if i == 1 then New("Frame", {Name = "Sel", Size = UDim2.new(0, 2, 0, 32), Position = UDim2.new(0, 0, 0.5, -16), BackgroundColor3 = accent, BorderSizePixel = 0, Parent = b}) end
-		b.MouseEnter:Connect(function() local o = actIcons[b] if o then for _, d in ipairs(o:GetDescendants()) do if d:IsA("Frame") then d.BackgroundColor3 = Theme.Bright end if d:IsA("TextLabel") then d.TextColor3 = Theme.Bright end end end end)
+		b.MouseEnter:Connect(function() local o = actIcons[b] if o then paintIcon(o, Theme.Bright) end end)
 		b.MouseLeave:Connect(function()
 			local sel = b:FindFirstChild("Sel") ~= nil
-			local o = actIcons[b]
-			if o then for _, d in ipairs(o:GetDescendants()) do if d:IsA("Frame") and d.Name ~= "Sel" then d.BackgroundColor3 = sel and Theme.Bright or Theme.Faint end if d:IsA("TextLabel") then d.TextColor3 = sel and Theme.Bright or Theme.Faint end end end
+			paintIcon(actIcons[b], sel and Theme.Bright or Theme.Faint)
 		end)
 		b.MouseButton1Click:Connect(function()
 			for _, o in ipairs(actBtns) do
 				if o:FindFirstChild("Sel") then o.Sel:Destroy() end
-				local oi = actIcons[o]
-				if oi then for _, d in ipairs(oi:GetDescendants()) do if d:IsA("Frame") then d.BackgroundColor3 = Theme.Faint end if d:IsA("TextLabel") then d.TextColor3 = Theme.Faint end end end
+				paintIcon(actIcons[o], Theme.Faint)
 			end
 			New("Frame", {Name = "Sel", Size = UDim2.new(0, 2, 0, 32), Position = UDim2.new(0, 0, 0.5, -16), BackgroundColor3 = accent, BorderSizePixel = 0, Parent = b})
-			for _, d in ipairs(ic:GetDescendants()) do if d:IsA("Frame") then d.BackgroundColor3 = Theme.Bright end if d:IsA("TextLabel") then d.TextColor3 = Theme.Bright end end
+			paintIcon(ic, Theme.Bright)
 			if v[2] == "Explorer" then Win._sideOpen = true else Win._sideOpen = (v[2] ~= "Explorer" and false or true) end
 			if v[2] ~= "Explorer" then Win._sideOpen = false Win:Notify({Title = v[2], Message = "Panel is decorative in this build. Explorer holds your scripts."}) else Win._sideOpen = true end
 			layoutEditor()
