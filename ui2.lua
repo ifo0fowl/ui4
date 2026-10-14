@@ -64,13 +64,13 @@ local function IsCustomAsset(Value)
 end
 
 local C = {
-	Box = Color3.fromRGB(21, 19, 25),
-	Line = Color3.fromRGB(72, 66, 74),
-	Off = Color3.fromRGB(112, 107, 114),
-	On = Color3.fromRGB(245, 240, 246),
-	BoxStroke = Color3.fromRGB(58, 52, 62),
+	Box = Color3.fromRGB(18, 18, 24),
+	Line = Color3.fromRGB(50, 50, 65),
+	Off = Color3.fromRGB(100, 100, 110),
+	On = Color3.fromRGB(240, 240, 245),
+	BoxStroke = Color3.fromRGB(30, 30, 40),
 }
-local DIM = Color3.fromRGB(135, 129, 138)
+local DIM = Color3.fromRGB(140, 140, 150)
 local FONT = Enum.Font.GothamMedium
 local WHITE = Color3.new(1, 1, 1)
 local MB1, TOUCH = Enum.UserInputType.MouseButton1, Enum.UserInputType.Touch
@@ -318,8 +318,8 @@ local function MakeOverlay(x, y, w, h)
 	Drop = New("Frame", { BackgroundColor3 = WHITE, BorderSizePixel = 0, ZIndex = 70,
 		Position = UDim2.fromOffset(x, y + 8), Size = UDim2.fromOffset(w, h) }, Root)
 	Corner(Drop, 8)
-	Grad(Drop, Color3.fromRGB(68, 60, 70), Color3.fromRGB(36, 31, 40), 60)
-	Grad(Stroke(Drop, WHITE, 1, 0.1), Color3.fromRGB(110, 90, 106), Color3.fromRGB(170, 120, 160), 45)
+	Grad(Drop, Color3.fromRGB(22, 22, 30), Color3.fromRGB(10, 10, 14), 60)
+	Grad(Stroke(Drop, WHITE, 1, 0.1), Color3.fromRGB(50, 50, 65), Color3.fromRGB(180, 110, 200), 45)
 	TweenService:Create(Drop, Tw(0.12), { Position = UDim2.fromOffset(x, y) }):Play()
 	return Drop
 end
@@ -347,7 +347,7 @@ local function OpenList(anchor, e, mode, refresh)
 	end
 	local sf = New("ScrollingFrame", { BackgroundTransparency = 1, BorderSizePixel = 0, Position = UDim2.fromOffset(6, top),
 		Size = UDim2.fromOffset(w - 12, listH), CanvasSize = UDim2.new(), AutomaticCanvasSize = Enum.AutomaticSize.Y,
-		ScrollBarThickness = 2, ScrollBarImageColor3 = Color3.fromRGB(150, 120, 150) }, D)
+		ScrollBarThickness = 2, ScrollBarImageColor3 = Color3.fromRGB(50, 50, 65) }, D)
 	New("UIListLayout", { Padding = UDim.new(0, 2), SortOrder = Enum.SortOrder.LayoutOrder }, sf)
 
 	local function isSel(it)
@@ -362,7 +362,7 @@ local function OpenList(anchor, e, mode, refresh)
 		for i, it in ipairs(e.list) do
 			if f == "" or it:lower():find(f, 1, true) then
 				local sel = isSel(it)
-				local b = New("TextButton", { Text = "", AutoButtonColor = false, BackgroundColor3 = Color3.fromRGB(96, 78, 100),
+				local b = New("TextButton", { Text = "", AutoButtonColor = false, BackgroundColor3 = Color3.fromRGB(24, 24, 32),
 					BackgroundTransparency = sel and 0.45 or 1, BorderSizePixel = 0, Size = UDim2.new(1, 0, 0, 32), LayoutOrder = i }, sf)
 				Corner(b, 6)
 				New("TextLabel", { BackgroundTransparency = 1, Text = it, Font = FONT, TextSize = 19,
@@ -402,7 +402,7 @@ local function OpenPicker(anchor, title, get, set)
 	local y = a.Y + sz.Y + 6
 	if y + h > DESIGN_H - 10 then y = math.max(a.Y - h - 6, 10) end
 	local D = MakeOverlay(x, y, w, h)
-	Text(D, title, 16, 26, 260, 21, Color3.fromRGB(205, 200, 207))
+	Text(D, title, 16, 26, 260, 21, Color3.fromRGB(240, 240, 245))
 
 	local hh, ss, vv = (get() or Presets[1]):ToHSV()
 
@@ -446,7 +446,7 @@ local function OpenPicker(anchor, title, get, set)
 	local prev = New("Frame", { BackgroundColor3 = WHITE, BorderSizePixel = 0, Position = UDim2.fromOffset(142, 262),
 		Size = UDim2.fromOffset(40, 34) }, D)
 	Corner(prev, 6)
-	Stroke(prev, Color3.fromRGB(90, 80, 92), 1, 0.2)
+	Stroke(prev, Color3.fromRGB(30, 30, 40), 1, 0.2)
 	local rgb = Text(D, "", 192, 279, 92, 17, C.Off, Enum.TextXAlignment.Right)
 
 	local function update(fire)
@@ -564,8 +564,8 @@ local function AddWidget(parent, e, x, y, w)
 		local bg = New("Frame", { BackgroundColor3 = WHITE, BorderSizePixel = 0, Position = UDim2.fromOffset(x, cy - 17),
 			Size = UDim2.fromOffset(w, 34) }, parent)
 		Corner(bg, 8)
-		Grad(bg, Color3.fromRGB(98, 80, 102), Color3.fromRGB(60, 50, 64), 0)
-		Grad(Stroke(bg, WHITE, 1, 0.2), Color3.fromRGB(110, 90, 106), Color3.fromRGB(170, 120, 160), 45)
+		Grad(bg, Color3.fromRGB(24, 24, 32), Color3.fromRGB(18, 18, 24), 0)
+		Grad(Stroke(bg, WHITE, 1, 0.2), Color3.fromRGB(50, 50, 65), Color3.fromRGB(180, 110, 200), 45)
 		local b = New("TextButton", { Text = e.n, Font = FONT, TextSize = 20, TextColor3 = C.On, AutoButtonColor = false,
 			BackgroundTransparency = 1, BorderSizePixel = 0, Size = UDim2.fromScale(1, 1) }, bg)
 		b.MouseButton1Click:Connect(function()
@@ -609,10 +609,10 @@ local function OpenPopup(title, anchor, entries, posFn, popName)
 		Position = UDim2.fromOffset(pos.X, pos.Y + 10), Size = UDim2.fromOffset(w, h) }, Root)
 	Popup.Name = popName or "Popup"
 	Corner(Popup, 8)
-	Grad(Popup, Color3.fromRGB(66, 58, 68), Color3.fromRGB(38, 33, 42), 60)
-	Grad(Stroke(Popup, WHITE, 1, 0.1), Color3.fromRGB(110, 90, 106), Color3.fromRGB(170, 120, 160), 45)
+	Grad(Popup, Color3.fromRGB(22, 22, 30), Color3.fromRGB(10, 10, 14), 60)
+	Grad(Stroke(Popup, WHITE, 1, 0.1), Color3.fromRGB(50, 50, 65), Color3.fromRGB(180, 110, 200), 45)
 	TweenService:Create(Popup, Tw(0.12), { Position = UDim2.fromOffset(pos.X, pos.Y) }):Play()
-	Text(Popup, title, 16, 28, 300, 21, Color3.fromRGB(205, 200, 207))
+	Text(Popup, title, 16, 28, 300, 21, Color3.fromRGB(240, 240, 245))
 	local y = 52
 	for _, e in ipairs(entries) do y += AddWidget(Popup, e, 16, y, 357) end
 end
@@ -1045,9 +1045,9 @@ local function MakePanel(parent, title, icon, order)
 	local p = New("Frame", { BackgroundColor3 = WHITE, BorderSizePixel = 0, Size = UDim2.fromOffset(412, 75),
 		LayoutOrder = order }, parent)
 	Corner(p, 10)
-	local g = Grad(p, Color3.fromRGB(64, 57, 67), Color3.fromRGB(44, 38, 48), 90)
+	local g = Grad(p, Color3.fromRGB(22, 22, 30), Color3.fromRGB(12, 12, 16), 90)
 	g.Transparency = NumberSequence.new(0.35, 0.55)
-	Grad(Stroke(p, WHITE, 1, 0.2), Color3.fromRGB(84, 70, 82), Color3.fromRGB(190, 130, 175), 55)
+	Grad(Stroke(p, WHITE, 1, 0.2), Color3.fromRGB(30, 30, 40), Color3.fromRGB(180, 110, 200), 55)
 	local bar = New("Frame", { BackgroundColor3 = WHITE, BorderSizePixel = 0,
 		Position = UDim2.fromOffset(13, 15), Size = UDim2.fromOffset(6, 26) }, p)
 	Corner(bar, 3)
@@ -1056,7 +1056,7 @@ local function MakePanel(parent, title, icon, order)
 	local pic = Icon(p, icon, 44, 28, 22, WHITE)
 	local pig = New("UIGradient", { Rotation = 45 }, pic)
 	OnAccent(pic, function() pig.Color = AccentSeq() end)
-	Text(p, title, 64, 28, 280, 21, Color3.fromRGB(178, 171, 181))
+	Text(p, title, 64, 28, 280, 21, Color3.fromRGB(240, 240, 245))
 	Line(p, 13, 55, 386)
 	return p
 end
@@ -1101,8 +1101,8 @@ function Library:Window(o)
 		Size = UDim2.fromOffset(DESIGN_W, DESIGN_H), BackgroundColor3 = WHITE, BackgroundTransparency = 0.04,
 		BorderSizePixel = 0, ZIndex = 1 }, Gui)
 	Corner(Root, 18)
-	Grad(Root, Color3.fromRGB(72, 62, 74), Color3.fromRGB(36, 30, 40), 55, Color3.fromRGB(48, 42, 51))
-	Grad(Stroke(Root, WHITE, 1.5, 0.15), Color3.fromRGB(120, 98, 118), Color3.fromRGB(58, 50, 62), 45)
+	Grad(Root, Color3.fromRGB(10, 10, 14), Color3.fromRGB(6, 6, 8), 55, Color3.fromRGB(12, 12, 16))
+	Grad(Stroke(Root, WHITE, 1.5, 0.15), Color3.fromRGB(50, 50, 65), Color3.fromRGB(30, 30, 40), 45)
 	Scale = New("UIScale", {}, Root)
 
 	local function UpdateScale()
@@ -1155,10 +1155,10 @@ function Library:Window(o)
 
 	local Sidebar = New("Frame", { BackgroundColor3 = WHITE, BorderSizePixel = 0, Size = UDim2.fromOffset(97, DESIGN_H) }, Root)
 	Corner(Sidebar, 18)
-	Grad(Sidebar, Color3.fromRGB(34, 31, 38), Color3.fromRGB(19, 17, 23), 90)
+	Grad(Sidebar, Color3.fromRGB(10, 10, 14), Color3.fromRGB(6, 6, 8), 90)
 	local Filler = New("Frame", { BackgroundColor3 = WHITE, BorderSizePixel = 0,
 		Position = UDim2.fromOffset(60, 0), Size = UDim2.fromOffset(37, DESIGN_H) }, Sidebar)
-	Grad(Filler, Color3.fromRGB(34, 31, 38), Color3.fromRGB(19, 17, 23), 90)
+	Grad(Filler, Color3.fromRGB(10, 10, 14), Color3.fromRGB(6, 6, 8), 90)
 
 	local Mark = Icon(Sidebar, Logo, 46, 45, 46, WHITE)
 	if IsCustomAsset(Logo) then
@@ -1173,7 +1173,7 @@ function Library:Window(o)
 	local SideSel = New("Frame", { BackgroundColor3 = WHITE, BorderSizePixel = 0, AnchorPoint = Vector2.new(0.5, 0.5),
 		Position = UDim2.fromOffset(46, 143), Size = UDim2.fromOffset(62, 62), Visible = false }, Sidebar)
 	Corner(SideSel, 12)
-	Grad(SideSel, Color3.fromRGB(92, 76, 96), Color3.fromRGB(58, 49, 62), 45)
+	Grad(SideSel, Color3.fromRGB(22, 22, 30), Color3.fromRGB(18, 18, 24), 45)
 
 	MakeDraggable(Sidebar, Root, WindowClamp)
 	local TopHandle = New("TextButton", { Text = "", AutoButtonColor = false, BackgroundTransparency = 1,
@@ -1234,8 +1234,8 @@ function Library:Window(o)
 
 		local bg = New("Frame", { BackgroundColor3 = WHITE, BorderSizePixel = 0, Size = UDim2.fromScale(1, 1) }, card)
 		Corner(bg, 8)
-		Grad(bg, Color3.fromRGB(66, 58, 68), Color3.fromRGB(38, 33, 42), 60)
-		Grad(Stroke(bg, WHITE, 1, 0.1), Color3.fromRGB(110, 90, 106), Color3.fromRGB(170, 120, 160), 45)
+		Grad(bg, Color3.fromRGB(22, 22, 30), Color3.fromRGB(10, 10, 14), 60)
+		Grad(Stroke(bg, WHITE, 1, 0.1), Color3.fromRGB(50, 50, 65), Color3.fromRGB(180, 110, 200), 45)
 
 		local bar = New("Frame", { BackgroundColor3 = WHITE, BorderSizePixel = 0, Position = UDim2.fromOffset(12, 12),
 			Size = UDim2.fromOffset(4, h - 28) }, card)
@@ -1376,7 +1376,7 @@ function Library:Window(o)
 			Position = UDim2.fromOffset(97, 77), Size = UDim2.fromOffset(DESIGN_W - 97, DESIGN_H - 85) }, Root)
 		local sf = New("ScrollingFrame", { BackgroundTransparency = 1, BorderSizePixel = 0, Size = UDim2.fromScale(1, 1),
 			CanvasSize = UDim2.new(), AutomaticCanvasSize = Enum.AutomaticSize.Y, ScrollBarThickness = 3,
-			ScrollBarImageColor3 = Color3.fromRGB(150, 120, 150), ScrollingDirection = Enum.ScrollingDirection.Y }, page)
+			ScrollBarImageColor3 = Color3.fromRGB(50, 50, 65), ScrollingDirection = Enum.ScrollingDirection.Y }, page)
 		table.insert(AllScrollers, sf)
 		local function Column(x)
 			local col = New("Frame", { BackgroundTransparency = 1, Position = UDim2.fromOffset(x, 18),
@@ -1431,12 +1431,12 @@ function Library:Window(o)
 		tab.Scroll = New("ScrollingFrame", { BackgroundTransparency = 1, BorderSizePixel = 0, Visible = false,
 			Position = UDim2.fromOffset(97, 0), Size = UDim2.fromOffset(DESIGN_W - 97, 77), CanvasSize = UDim2.new(),
 			AutomaticCanvasSize = Enum.AutomaticSize.X, ScrollingDirection = Enum.ScrollingDirection.X,
-			ScrollBarThickness = 0, ScrollBarImageColor3 = Color3.fromRGB(150, 120, 150) }, Root)
+			ScrollBarThickness = 0, ScrollBarImageColor3 = Color3.fromRGB(50, 50, 65) }, Root)
 		tab.Spacer = New("Frame", { BackgroundTransparency = 1, Size = UDim2.fromOffset(1, 1) }, tab.Scroll)
 		tab.Pill = New("Frame", { BackgroundColor3 = WHITE, BackgroundTransparency = 0.2, BorderSizePixel = 0, Visible = false,
 			Position = UDim2.fromOffset(TAB_PAD, 11), Size = UDim2.fromOffset(274, 54) }, tab.Scroll)
 		Corner(tab.Pill, 10)
-		Grad(tab.Pill, Color3.fromRGB(134, 110, 134), Color3.fromRGB(92, 76, 96), 0)
+		Grad(tab.Pill, Color3.fromRGB(180, 110, 200), Color3.fromRGB(155, 89, 182), 0)
 		tab.Scroll.InputChanged:Connect(function(inp)
 			if tab.Scrolling and inp.UserInputType == Enum.UserInputType.MouseWheel then
 				local maxX = math.max(0, (tab.Scroll.AbsoluteCanvasSize.X - tab.Scroll.AbsoluteSize.X) / Scale.Scale)
@@ -1508,8 +1508,8 @@ function Library:Window(o)
 		local KbBg = New("TextButton", { Text = "", AutoButtonColor = false, BackgroundColor3 = WHITE, BorderSizePixel = 0,
 			Size = UDim2.fromScale(1, 1) }, KbRoot)
 		Corner(KbBg, 8)
-		Grad(KbBg, Color3.fromRGB(66, 58, 68), Color3.fromRGB(38, 33, 42), 60)
-		Grad(Stroke(KbBg, WHITE, 1, 0.1), Color3.fromRGB(110, 90, 106), Color3.fromRGB(170, 120, 160), 45)
+		Grad(KbBg, Color3.fromRGB(22, 22, 30), Color3.fromRGB(10, 10, 14), 60)
+		Grad(Stroke(KbBg, WHITE, 1, 0.1), Color3.fromRGB(50, 50, 65), Color3.fromRGB(180, 110, 200), 45)
 		MakeDraggable(KbBg, KbRoot, KbClamp)
 
 		local bar = New("Frame", { BackgroundColor3 = WHITE, BorderSizePixel = 0, Position = UDim2.fromOffset(13, 14),
@@ -1517,7 +1517,7 @@ function Library:Window(o)
 		Corner(bar, 3)
 		local bg = New("UIGradient", { Rotation = 90 }, bar)
 		OnAccent(bar, function() bg.Color = AccentSeq() end)
-		Text(KbBg, "keybind list", 30, 26, 240, 21, Color3.fromRGB(205, 200, 207))
+		Text(KbBg, "keybind list", 30, 26, 240, 21, Color3.fromRGB(240, 240, 245))
 		Line(KbBg, 13, 50, 274)
 		local KbHolder = New("Frame", { BackgroundTransparency = 1, Position = UDim2.fromOffset(0, 56),
 			Size = UDim2.new(1, 0, 0, 0) }, KbBg)
@@ -1591,8 +1591,8 @@ function Library:Window(o)
 			Visible = false, AutomaticSize = Enum.AutomaticSize.X, AnchorPoint = Vector2.new(1, 0),
 			Position = UDim2.new(1, -16, 0, 16), Size = UDim2.fromOffset(0, 40), ZIndex = 2 }, Gui)
 		Corner(WmRoot, 8)
-		Grad(WmRoot, Color3.fromRGB(66, 58, 68), Color3.fromRGB(38, 33, 42), 60)
-		Grad(Stroke(WmRoot, WHITE, 1, 0.1), Color3.fromRGB(110, 90, 106), Color3.fromRGB(170, 120, 160), 45)
+		Grad(WmRoot, Color3.fromRGB(22, 22, 30), Color3.fromRGB(10, 10, 14), 60)
+		Grad(Stroke(WmRoot, WHITE, 1, 0.1), Color3.fromRGB(50, 50, 65), Color3.fromRGB(180, 110, 200), 45)
 		table.insert(ExtScales, New("UIScale", { Scale = ExtScale() }, WmRoot))
 		New("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, SortOrder = Enum.SortOrder.LayoutOrder,
 			VerticalAlignment = Enum.VerticalAlignment.Center, Padding = UDim.new(0, 10) }, WmRoot)
@@ -1692,8 +1692,8 @@ function Library:Window(o)
 		local T = New("TextButton", { Text = "", AutoButtonColor = false, BackgroundColor3 = WHITE,
 			Position = UDim2.new(0, 12, 0.5, -22), Size = UDim2.fromOffset(44, 44) }, Gui)
 		Corner(T, 12)
-		Grad(T, Color3.fromRGB(40, 36, 44), Color3.fromRGB(22, 20, 26), 90)
-		Stroke(T, Color3.fromRGB(110, 90, 106), 1, 0.2)
+		Grad(T, Color3.fromRGB(18, 18, 24), Color3.fromRGB(10, 10, 14), 90)
+		Stroke(T, Color3.fromRGB(50, 50, 65), 1, 0.2)
 		local TM = Icon(T, Logo, 22, 22, 26, IsCustomAsset(Logo) and WHITE or Accent)
 		if IsCustomAsset(Logo) then TM.ScaleType = Enum.ScaleType.Fit end
 		T.MouseButton1Click:Connect(function()
