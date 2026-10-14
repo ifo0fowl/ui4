@@ -122,6 +122,7 @@ function VSCode:CreateWindow(opt)
 	btnX.MouseButton1Click:Connect(function() Gui.Enabled = false end)
 	local minimized, full = false, false
 	local oldSize, oldPos = Main.Size, Main.Position
+	local Body, Side, StatusBar
 	btnMin.MouseButton1Click:Connect(function()
 		minimized = not minimized
 		Body.Visible = not minimized
@@ -134,7 +135,7 @@ function VSCode:CreateWindow(opt)
 		Main.Position = full and UDim2.new(0, 20, 0, 20) or UDim2.new(0.5, -440, 0.5, -280)
 	end)
 
-	local Body = New("Frame", {Name = "Body", Size = UDim2.new(1, 0, 1, -54), Position = UDim2.new(0, 0, 0, 32), BackgroundTransparency = 1, Parent = Main})
+	Body = New("Frame", {Name = "Body", Size = UDim2.new(1, 0, 1, -54), Position = UDim2.new(0, 0, 0, 32), BackgroundTransparency = 1, Parent = Main})
 
 	local Activity = New("Frame", {Size = UDim2.new(0, 48, 1, 0), BackgroundColor3 = Theme.Activity, BorderSizePixel = 0, Parent = Body})
 	local actIcons = {{"⿻", "Explorer"}, {"⌕", "Search"}, {"⑂", "Source"}, {"▷", "Run"}, {"⧉", "Extensions"}}
@@ -153,7 +154,7 @@ function VSCode:CreateWindow(opt)
 	New("TextButton", {Size = UDim2.new(1, 0, 0, 40), Position = UDim2.new(0, 0, 1, -80), BackgroundTransparency = 1, Text = "◯", Font = Enum.Font.GothamBold, TextSize = 15, TextColor3 = Theme.Faint, Parent = Activity})
 	New("TextButton", {Size = UDim2.new(1, 0, 0, 40), Position = UDim2.new(0, 0, 1, -40), BackgroundTransparency = 1, Text = "⚙", Font = Enum.Font.Gotham, TextSize = 16, TextColor3 = Theme.Faint, Parent = Activity})
 
-	local Side = New("Frame", {Name = "Side", Size = UDim2.new(0, 178, 1, 0), Position = UDim2.new(0, 48, 0, 0), BackgroundColor3 = Theme.Side, BorderSizePixel = 0, Parent = Body})
+	Side = New("Frame", {Name = "Side", Size = UDim2.new(0, 178, 1, 0), Position = UDim2.new(0, 48, 0, 0), BackgroundColor3 = Theme.Side, BorderSizePixel = 0, Parent = Body})
 	New("TextLabel", {Size = UDim2.new(1, -12, 0, 28), Position = UDim2.new(0, 12, 0, 2), BackgroundTransparency = 1, Text = "EXPLORER", Font = Enum.Font.Gotham, TextSize = 10, TextColor3 = Theme.Dim, TextXAlignment = Left, Parent = Side})
 	local outline = New("TextLabel", {Size = UDim2.new(1, 0, 0, 22), Position = UDim2.new(0, 0, 0, 30), BackgroundTransparency = 1, Text = "  ⌄ " .. string.upper(title), Font = Enum.Font.GothamBold, TextSize = 11, TextColor3 = Theme.Text, TextXAlignment = Left, Parent = Side})
 	local FileList = New("ScrollingFrame", {Size = UDim2.new(1, 0, 1, -56), Position = UDim2.new(0, 0, 0, 54), BackgroundTransparency = 1, ScrollBarThickness = 4, ScrollBarImageColor3 = Color3.fromRGB(70, 70, 70), CanvasSize = UDim2.new(0, 0, 0, 0), AutomaticCanvasSize = Enum.AutomaticSize.Y, Parent = Side})
@@ -173,7 +174,7 @@ function VSCode:CreateWindow(opt)
 		New("Frame", {Size = UDim2.new(0, w, 0, 2), Position = UDim2.new(0, 4, 0, (i - 1) * 12 + 4), BackgroundColor3 = c, BackgroundTransparency = 0.45, BorderSizePixel = 0, Parent = MiniMap})
 	end
 
-	local StatusBar = New("Frame", {Name = "Status", Size = UDim2.new(1, 0, 0, 22), Position = UDim2.new(0, 0, 1, -22), BackgroundColor3 = accent, BorderSizePixel = 0, Parent = Main})
+	StatusBar = New("Frame", {Name = "Status", Size = UDim2.new(1, 0, 0, 22), Position = UDim2.new(0, 0, 1, -22), BackgroundColor3 = accent, BorderSizePixel = 0, Parent = Main})
 	New("UICorner", {CornerRadius = UDim.new(0, 6), Parent = StatusBar})
 	New("Frame", {Size = UDim2.new(1, 0, 0, 12), Position = UDim2.new(0, 0, 0, 0), BackgroundColor3 = accent, BorderSizePixel = 0, Parent = StatusBar})
 	local SL = New("Frame", {Size = UDim2.new(0.6, 0, 1, 0), BackgroundTransparency = 1, Parent = StatusBar})
