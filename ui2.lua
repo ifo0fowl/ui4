@@ -939,7 +939,15 @@ end
 local function OpenSettingsPopup(anchor)
 	local entries = FeatureEntries("watermark", WmOpts or {})
 	entries[1].n = "watermark"
+	Cfg("menu key").bind = MenuKey
+	local menuKeyEntry = InlineEntry({ t = "keybind", n = "menu key", def = MenuKey })
+	local origMenuSet = menuKeyEntry.set
+	menuKeyEntry.set = function(v)
+		origMenuSet(v)
+		if v then MenuKey = v end
+	end
 	local rest = {
+		menuKeyEntry,
 		InlineEntry({ t = "slider", n = "tween speed", min = 25, max = 200, def = 100, suf = "%", step = 5 }),
 		InlineEntry({ t = "dropdown", n = "easing style", list = EaseList, def = "Quart" }),
 		{ t = "color", n = "accent color", get = function() return Accent end, set = SetAccent },
