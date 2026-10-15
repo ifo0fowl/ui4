@@ -911,132 +911,7 @@ function Configs.RunAutoload()
 	if a and Store.Exists(a) then Configs.Load(a, true) end
 end
 
-local function OpenConfigPopup(anchor)
-	RefreshList()
-	local DDRefresh
-	local function syncDD() if DDRefresh then pcall(DDRefresh) end end
-	local a = Store.GetAuto()
-	local entries = {
-		{ t = "input", n = "config name", ph = "enter name...", get = function() return CfgName end,
-			set = function(v) CfgName = v end },
-		{ t = "button", n = "save config", cb = function() Configs.Save(CfgName); syncDD() end },
-		{ t = "dropdown", n = "configs", list = CfgList, get = function() return CfgSel end,
-			set = function(v) CfgSel = v end, onCreate = function(_, r) DDRefresh = r end },
-		{ t = "button", n = "load config", cb = function() Configs.Load(CfgSel) end },
-		{ t = "button", n = "overwrite config", cb = function() Configs.Overwrite(CfgSel); syncDD() end },
-		{ t = "button", n = "set as autoload", cb = function() Configs.SetAutoload(CfgSel) end },
-		{ t = "button", n = "remove autoload", cb = function() Configs.RemoveAutoload() end },
-		{ t = "label", n = "autoload: " .. (a or "none"), col = a and Accent or C.Off },
-	}
-	OpenPopup("config", anchor, entries, function(w, h) return Vector2.new(107, DESIGN_H - h - 14) end, "ConfigPopup")
-	if Popup then
-		for _, ch in ipairs(Popup:GetChildren()) do
-			if ch:IsA("TextLabel") and ch.Text:sub(1, 9) == "autoload:" then Configs.AutoLabel = ch end
-		end
-	end
-end
 
-local TeleportService = game:GetService("TeleportService")
-local function ServerNote(title, info)
-	if Notifier then Notifier(title, info, "server", 3) end
-end
-local function FetchServerPage(cursor)
-	local url = "https://games.roblox.com/v1/games/" .. tostring(game.PlaceId) .. "/servers/Public?sortOrder=Asc&limit=100"
-	if type(cursor) == "string" and cursor ~= "" then url ..= "&cursor=" .. cursor end
-	local ok, body = pcall(function() return game:HttpGet(url) end)
-	if not ok or type(body) ~= "string" or body == "" then return nil end
-	local ok2, data = pcall(function() return HttpService:JSONDecode(body) end)
-	if not ok2 or type(data) ~= "table" then return nil end
-	return data
-end
-local function EachServer(fn)
-	local cursor = nil
-	for _ = 1, 5 do
-		local data = FetchServerPage(cursor)
-		if not data or type(data.data) ~= "table" then break end
-		for _, s in ipairs(data.data) do
-			if type(s) == "table" and s.id ~= game.JobId then
-				local playing, maxP = tonumber(s.playing), tonumber(s.maxPlayers)
-				if playing and maxP and playing < maxP then
-					if fn(s) == true then return end
-				end
-			end
-		end
-		if type(data.nextPageCursor) ~= "string" or data.nextPageCursor == "" then break end
-		cursor = data.nextPageCursor
-	end
-end
-local function HopToServer(id, label)
-	local ok, err = pcall(function() TeleportService:TeleportToPlaceInstance(game.PlaceId, tostring(id)) end)
-	if ok then ServerNote(label, "joining...") else ServerNote("teleport failed", tostring(err)) end
-end
-local function RejoinServer()
-	local ok, err = pcall(function() TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId) end)
-	if ok then ServerNote("rejoining", "joining...") else ServerNote("rejoin failed", tostring(err)) end
-end
-local function HopServer()
-	local pool = {}
-	EachServer(function(s) table.insert(pool, s.id) end)
-	if #pool == 0 then ServerNote("server hop", "no servers found") return end
-	HopToServer(pool[math.random(1, #pool)], "server hop")
-end
-local function JoinLowestPlayers()
-	local best = nil
-	EachServer(function(s)
-		if best == nil or tonumber(s.playing) < tonumber(best.playing) then best = s end
-	end)
-	if not best then ServerNote("join lowest", "no servers found") return end
-	HopToServer(best.id, "join lowest")
-end
-local function JoinLowestPing()
-	local best, bestPing = nil, nil
-	EachServer(function(s)
-		local p = tonumber(s.ping)
-		if p then
-			if bestPing == nil or p < bestPing then best, bestPing = s, p end
-		elseif best == nil then best = s end
-	end)
-	if not best then ServerNote("join lowest ping", "no servers found") return end
-	HopToServer(best.id, "join lowest ping")
-end
-
-local function OpenSettingsPopup(anchor)
-	local entries = FeatureEntries("watermark", WmOpts or {})
-	entries[1].n = "watermark"
-	Cfg("menu key").bind = MenuKey
-	local menuKeyEntry = InlineEntry({ t = "keybind", n = "menu key", def = MenuKey })
-	local origMenuSet = menuKeyEntry.set
-	menuKeyEntry.set = function(v)
-		origMenuSet(v)
-		if v then MenuKey = v end
-	end
-	local rest = {
-		menuKeyEntry,
-		InlineEntry({ t = "slider", n = "tween speed", min = 25, max = 200, def = 100, suf = "%", step = 5 }),
-		InlineEntry({ t = "dropdown", n = "easing style", list = EaseList, def = "Quart" }),
-		{ t = "color", n = "accent color", get = function() return Accent end, set = SetAccent },
-	}
-	for _, e in ipairs(rest) do table.insert(entries, e) end
-	local server = {
-		{ t = "label", n = "server" },
-		{ t = "button", n = "rejoin", cb = RejoinServer },
-		{ t = "button", n = "server hop", cb = HopServer },
-		{ t = "button", n = "join lowest players", cb = JoinLowestPlayers },
-		{ t = "button", n = "join lowest ping", cb = JoinLowestPing },
-	}
-	for _, e in ipairs(server) do table.insert(entries, e) end
-	local system = {
-		{ t = "toggle", n = "keybind list",
-			get = function() return Cfg("keybind list").enabled end,
-			set = function(v) SetEnabled("keybind list", v) end },
-		{ t = "slider", n = "keybind opacity", min = 10, max = 100, suf = "%", step = 5,
-			get = function() return Cfg("keybind list").options.opacity or 100 end,
-			set = function(v) Cfg("keybind list").options.opacity = v end },
-		{ t = "button", n = "configs...", cb = function() OpenConfigPopup() end },
-	}
-	for _, e in ipairs(system) do table.insert(entries, e) end
-	OpenPopup("settings", anchor, entries, function(w, h) return Vector2.new(107, DESIGN_H - h - 14) end, "SettingsPopup")
-end
 
 local SectionMT = {}
 SectionMT.__index = SectionMT
@@ -1549,28 +1424,6 @@ function Library:Window(o)
 
 	function WindowObj:Destroy() Gui:Destroy() end
 
-	local Slots = 0
-	local function Slot()
-		local y = 633 + Slots * 74
-		if Slots == 0 then Line(Sidebar, 22, 590, 52) end
-		Slots += 1
-		return y
-	end
-
-	local function SideButton(y, iconName, popupName, openFn)
-		local ic = Icon(Sidebar, iconName, 46, y, 30, DIM)
-		local b = New("TextButton", { Text = "", BackgroundTransparency = 1, AnchorPoint = Vector2.new(0.5, 0.5),
-			Position = UDim2.fromOffset(46, y), Size = UDim2.fromOffset(70, 70) }, Sidebar)
-		b.MouseButton1Click:Connect(function() openFn(b) end)
-		local state = false
-		RunService.Heartbeat:Connect(function()
-			if not Gui.Parent then return end
-			local open = Popup ~= nil and Popup.Name == popupName
-			if open == state then return end
-			state = open
-			TweenService:Create(ic, Tw(0.2), { ImageColor3 = open and C.On or DIM }):Play()
-		end)
-	end
 
 	function WindowObj:CreateConfigSystem()
 		task.defer(Configs.RunAutoload)
@@ -1648,6 +1501,70 @@ function Library:Window(o)
 		end)
 	end
 
+	local TeleportService = game:GetService("TeleportService")
+	local function ServerNote(title, info)
+		if Notifier then Notifier(title, info, "server", 3) end
+	end
+	local function FetchServerPage(cursor)
+		local url = "https://games.roblox.com/v1/games/" .. tostring(game.PlaceId) .. "/servers/Public?sortOrder=Asc&limit=100"
+		if type(cursor) == "string" and cursor ~= "" then url ..= "&cursor=" .. cursor end
+		local ok, body = pcall(function() return game:HttpGet(url) end)
+		if not ok or type(body) ~= "string" or body == "" then return nil end
+		local ok2, data = pcall(function() return HttpService:JSONDecode(body) end)
+		if not ok2 or type(data) ~= "table" then return nil end
+		return data
+	end
+	local function EachServer(fn)
+		local cursor = nil
+		for _ = 1, 5 do
+			local data = FetchServerPage(cursor)
+			if not data or type(data.data) ~= "table" then break end
+			for _, s in ipairs(data.data) do
+				if type(s) == "table" and s.id ~= game.JobId then
+					local playing, maxP = tonumber(s.playing), tonumber(s.maxPlayers)
+					if playing and maxP and playing < maxP then
+						if fn(s) == true then return end
+					end
+				end
+			end
+			if type(data.nextPageCursor) ~= "string" or data.nextPageCursor == "" then break end
+			cursor = data.nextPageCursor
+		end
+	end
+	local function HopToServer(id, label)
+		local ok, err = pcall(function() TeleportService:TeleportToPlaceInstance(game.PlaceId, tostring(id)) end)
+		if ok then ServerNote(label, "joining...") else ServerNote("teleport failed", tostring(err)) end
+	end
+	local function RejoinServer()
+		local ok, err = pcall(function() TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId) end)
+		if ok then ServerNote("rejoining", "joining...") else ServerNote("rejoin failed", tostring(err)) end
+	end
+	local function HopServer()
+		local pool = {}
+		EachServer(function(s) table.insert(pool, s.id) end)
+		if #pool == 0 then ServerNote("server hop", "no servers found") return end
+		HopToServer(pool[math.random(1, #pool)], "server hop")
+	end
+	local function JoinLowestPlayers()
+		local best = nil
+		EachServer(function(s)
+			if best == nil or tonumber(s.playing) < tonumber(best.playing) then best = s end
+		end)
+		if not best then ServerNote("join lowest", "no servers found") return end
+		HopToServer(best.id, "join lowest")
+	end
+	local function JoinLowestPing()
+		local best, bestPing = nil, nil
+		EachServer(function(s)
+			local p = tonumber(s.ping)
+			if p then
+				if bestPing == nil or p < bestPing then best, bestPing = s, p end
+			elseif best == nil then best = s end
+		end)
+		if not best then ServerNote("join lowest ping", "no servers found") return end
+		HopToServer(best.id, "join lowest ping")
+	end
+
 	function WindowObj:CreateSettingSystem()
 		WmOpts = {
 			Spec({ Type = "MultiDropdown", Name = "show", List = { "fps", "ping", "time", "name" }, Default = { "fps", "ping" } }),
@@ -1655,110 +1572,54 @@ function Library:Window(o)
 			Spec({ Type = "Toggle", Name = "custom color", Default = false }),
 			Spec({ Type = "ColorPicker", Name = "color" }),
 		}
-		InitOpts("watermark", WmOpts)
 		local wc = Cfg("watermark")
 		wc.kind = "toggle"
 		wc.enabled = true
 
-		local WmRoot = New("TextButton", { Text = "", AutoButtonColor = false, BackgroundColor3 = Color3.fromRGB(0, 0, 0), BorderSizePixel = 0,
-			Visible = false, AutomaticSize = Enum.AutomaticSize.X, AnchorPoint = Vector2.new(1, 0),
-			Position = UDim2.new(1, -16, 0, 16), Size = UDim2.fromOffset(0, 40), ZIndex = 2 }, Gui)
-		Corner(WmRoot, 8)
-		Grad(WmRoot, Color3.fromRGB(16, 12, 26), Color3.fromRGB(5, 3, 10), 60)
-		Grad(Stroke(WmRoot, WHITE, 1, 0.1), Color3.fromRGB(60, 30, 110), Color3.fromRGB(168, 130, 255), 45)
-		table.insert(ExtScales, New("UIScale", { Scale = ExtScale() }, WmRoot))
-		New("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, SortOrder = Enum.SortOrder.LayoutOrder,
-			VerticalAlignment = Enum.VerticalAlignment.Center, Padding = UDim.new(0, 10) }, WmRoot)
-		New("UIPadding", { PaddingLeft = UDim.new(0, 14), PaddingRight = UDim.new(0, 14) }, WmRoot)
-		MakeDraggable(WmRoot, WmRoot, WmClamp)
+		local side = WindowObj:Tab(WindowObj, { Icon = "sliders-horizontal" })
+		local sub = side:SubTab({ Name = "settings", Icon = "sliders-horizontal" })
 
-		local WmBar = New("Frame", { BackgroundColor3 = WHITE, BorderSizePixel = 0, Size = UDim2.fromOffset(4, 22), LayoutOrder = 0 }, WmRoot)
-		Corner(WmBar, 2)
-		local WmBarG = New("UIGradient", { Rotation = 90 }, WmBar)
-		local WmIcon = New("ImageLabel", { BackgroundTransparency = 1, Size = UDim2.fromOffset(22, 22), ImageColor3 = WHITE, LayoutOrder = 1 }, WmRoot)
-		local WmIconG = New("UIGradient", { Rotation = 45 }, WmIcon)
-		New("TextLabel", { BackgroundTransparency = 1, AutomaticSize = Enum.AutomaticSize.X, Size = UDim2.fromOffset(0, 40),
-			Font = FONT, TextSize = 21, TextColor3 = C.On, Text = Title, LayoutOrder = 2 }, WmRoot)
-
-		local order = { "fps", "ping", "time", "name" }
-		local segs = {}
-		for i, key in ipairs(order) do
-			local div = New("Frame", { BackgroundColor3 = C.Line, BorderSizePixel = 0, Size = UDim2.fromOffset(1, 18),
-				LayoutOrder = 10 + i * 2, Visible = false }, WmRoot)
-			local lbl = New("TextLabel", { BackgroundTransparency = 1, AutomaticSize = Enum.AutomaticSize.X, Size = UDim2.fromOffset(0, 40),
-				Font = FONT, TextSize = 20, TextColor3 = C.Off, RichText = true, Text = "", LayoutOrder = 11 + i * 2, Visible = false }, WmRoot)
-			segs[key] = { div = div, lbl = lbl }
+		local menu = sub:Section({ Name = "menu", Side = "Left", Icon = "sliders-horizontal" })
+		Cfg("menu key").bind = MenuKey
+		local menuKeyEntry = InlineEntry({ t = "keybind", n = "menu key", def = MenuKey })
+		local origMenuSet = menuKeyEntry.set
+		menuKeyEntry.set = function(v)
+			origMenuSet(v)
+			if v then MenuKey = v end
 		end
+		AddEntry(menu, menuKeyEntry)
+		AddEntry(menu, InlineEntry({ t = "slider", n = "tween speed", min = 25, max = 200, def = 100, suf = "%", step = 5 }))
+		AddEntry(menu, InlineEntry({ t = "dropdown", n = "easing style", list = EaseList, def = "Quart" }))
+		AddEntry(menu, { t = "color", n = "accent color", get = function() return Accent end, set = SetAccent })
 
-		local function GetPing()
-			local okp2, v = pcall(function() return game:GetService("Stats").Network.ServerStatsItem["Data Ping"]:GetValue() end)
-			if okp2 and type(v) == "number" then return math.floor(v + 0.5) end
-			local okq, q = pcall(function() return Players.LocalPlayer:GetNetworkPing() end)
-			return okq and math.floor(q * 2000 + 0.5) or 0
-		end
+		local kb = sub:Section({ Name = "keybinds", Side = "Left", Icon = "keyboard" })
+		kb:Toggle({ Name = "show keybinds", Flag = "keybind list", Default = true })
+		AddEntry(kb, { t = "slider", n = "opacity", min = 10, max = 100, suf = "%", step = 5,
+			get = function() return Cfg("keybind list").options.opacity or 100 end,
+			set = function(v) Cfg("keybind list").options.opacity = v end })
 
-		local frames, lastT, fps = 0, os.clock(), 0
-		local lastHL, lastIcon
-		RunService.Heartbeat:Connect(function()
-			if not Gui.Parent then return end
-			frames += 1
-			WmRoot.Visible = wc.enabled
-			if not wc.enabled then return end
-			local op = wc.options
-			local dirty = false
+		local wm = sub:Section({ Name = "watermark", Side = "Right", Icon = "eye" })
+		wm:Toggle({ Name = "watermark", Default = true, Options = WmOpts })
 
-			local hl = (op["custom color"] and op.color) or Accent
-			if hl ~= lastHL then
-				lastHL = hl
-				local seq = ColorSequence.new(hl:Lerp(WHITE, 0.35), hl)
-				WmBarG.Color = seq
-				if not IsCustomAsset(lastIcon) then
-					WmIconG.Color = seq
-				end
-				dirty = true
-			end
+		local srv = sub:Section({ Name = "server", Side = "Right", Icon = "server" })
+		srv:Button({ Name = "rejoin", Callback = RejoinServer })
+		srv:Button({ Name = "server hop", Callback = HopServer })
+		srv:Button({ Name = "join lowest players", Callback = JoinLowestPlayers })
+		srv:Button({ Name = "join lowest ping", Callback = JoinLowestPing })
 
-			local ic = (type(op.icon) == "string" and op.icon ~= "") and op.icon or Logo
-			if ic ~= lastIcon then
-				lastIcon = ic
-				WmIcon.ImageRectOffset = Vector2.new(0, 0)
-				WmIcon.ImageRectSize = Vector2.new(0, 0)
-				ApplyIcon(WmIcon, ic)
-				if IsCustomAsset(ic) then
-					WmIconG.Enabled = false
-					WmIcon.ImageColor3 = WHITE
-					WmIcon.ScaleType = Enum.ScaleType.Fit
-				else
-					WmIconG.Enabled = true
-					WmIcon.ScaleType = Enum.ScaleType.Stretch
-					local seq2 = ColorSequence.new(hl:Lerp(WHITE, 0.35), hl)
-					WmIconG.Color = seq2
-				end
-			end
-
-			local now = os.clock()
-			if now - lastT >= 0.5 then
-				fps = math.floor(frames / (now - lastT) + 0.5)
-				frames, lastT = 0, now
-				dirty = true
-			end
-			if not dirty then return end
-
-			local hex = "#" .. hl:ToHex()
-			local function val(v, suf) return '<font color="' .. hex .. '">' .. tostring(v) .. "</font>" .. suf end
-			local set = {}
-			for _, v in ipairs(op.show or {}) do set[v] = true end
-			segs.fps.lbl.Text = val(fps, " fps")
-			segs.ping.lbl.Text = val(GetPing(), " ms")
-			segs.time.lbl.Text = val(os.date("%H:%M"), "")
-			segs.name.lbl.Text = val(Players.LocalPlayer.Name, "")
-			for _, key in ipairs(order) do
-				segs[key].lbl.Visible = set[key] == true
-				segs[key].div.Visible = set[key] == true
-			end
-		end)
-
-		SideButton(Slot(), "sliders-horizontal", "SettingsPopup", OpenSettingsPopup)
+		RefreshList()
+		local cfg = sub:Section({ Name = "configs", Side = "Right", Icon = "file" })
+		AddEntry(cfg, { t = "input", n = "config name", ph = "enter name...",
+			get = function() return CfgName end, set = function(v) CfgName = v end })
+		cfg:Button({ Name = "save config", Callback = function() Configs.Save(CfgName); RefreshAll() end })
+		AddEntry(cfg, { t = "dropdown", n = "configs", list = CfgList,
+			get = function() return CfgSel end, set = function(v) CfgSel = v end })
+		cfg:Button({ Name = "load config", Callback = function() Configs.Load(CfgSel); RefreshAll() end })
+		cfg:Button({ Name = "overwrite config", Callback = function() Configs.Overwrite(CfgSel); RefreshAll() end })
+		cfg:Button({ Name = "set as autoload", Callback = function() Configs.SetAutoload(CfgSel); RefreshAll() end })
+		cfg:Button({ Name = "remove autoload", Callback = function() Configs.RemoveAutoload(); RefreshAll() end })
+		Configs.AutoLabel = AddEntry(cfg, { t = "label", n = "autoload: " .. (Store.GetAuto() or "none"), col = C.Off })
+		UpdateAutoLabel()
 	end
 
 	if UIS.TouchEnabled then
