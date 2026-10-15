@@ -15,7 +15,7 @@ end)
 local function ResolveIcon(Icon)
 	if type(Icon) == "number" then return "rbxassetid://" .. Icon end
 	if type(Icon) == "string" then
-		if string.match(Icon, "^rbxassetid://") then return Icon end
+		if string.find(Icon, "://", 1, true) then return Icon end
 		if string.match(Icon, "^%d+$") then return "rbxassetid://" .. Icon end
 		local Name = string.lower(Icon)
 		if type(Lucide) == "function" then
@@ -57,7 +57,7 @@ end
 local function IsCustomAsset(Value)
 	if type(Value) == "number" then return true end
 	if type(Value) == "string" then
-		if string.match(Value, "^rbxassetid://") then return true end
+		if string.find(Value, "://", 1, true) then return true end
 		if string.match(Value, "^%d+$") then return true end
 	end
 	return false
@@ -936,6 +936,70 @@ local function OpenConfigPopup(anchor)
 	end
 end
 
+local TeleportService = game:GetService("TeleportService")
+local function ServerNote(title, info)
+	if Notifier then Notifier(title, info, "server", 3) end
+end
+local function FetchServerPage(cursor)
+	local url = "https://games.roblox.com/v1/games/" .. tostring(game.PlaceId) .. "/servers/Public?sortOrder=Asc&limit=100"
+	if type(cursor) == "string" and cursor ~= "" then url ..= "&cursor=" .. cursor end
+	local ok, body = pcall(function() return game:HttpGet(url) end)
+	if not ok or type(body) ~= "string" or body == "" then return nil end
+	local ok2, data = pcall(function() return HttpService:JSONDecode(body) end)
+	if not ok2 or type(data) ~= "table" then return nil end
+	return data
+end
+local function EachServer(fn)
+	local cursor = nil
+	for _ = 1, 5 do
+		local data = FetchServerPage(cursor)
+		if not data or type(data.data) ~= "table" then break end
+		for _, s in ipairs(data.data) do
+			if type(s) == "table" and s.id ~= game.JobId then
+				local playing, maxP = tonumber(s.playing), tonumber(s.maxPlayers)
+				if playing and maxP and playing < maxP then
+					if fn(s) == true then return end
+				end
+			end
+		end
+		if type(data.nextPageCursor) ~= "string" or data.nextPageCursor == "" then break end
+		cursor = data.nextPageCursor
+	end
+end
+local function HopToServer(id, label)
+	local ok, err = pcall(function() TeleportService:TeleportToPlaceInstance(game.PlaceId, tostring(id)) end)
+	if ok then ServerNote(label, "joining...") else ServerNote("teleport failed", tostring(err)) end
+end
+local function RejoinServer()
+	local ok, err = pcall(function() TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId) end)
+	if ok then ServerNote("rejoining", "joining...") else ServerNote("rejoin failed", tostring(err)) end
+end
+local function HopServer()
+	local pool = {}
+	EachServer(function(s) table.insert(pool, s.id) end)
+	if #pool == 0 then ServerNote("server hop", "no servers found") return end
+	HopToServer(pool[math.random(1, #pool)], "server hop")
+end
+local function JoinLowestPlayers()
+	local best = nil
+	EachServer(function(s)
+		if best == nil or tonumber(s.playing) < tonumber(best.playing) then best = s end
+	end)
+	if not best then ServerNote("join lowest", "no servers found") return end
+	HopToServer(best.id, "join lowest")
+end
+local function JoinLowestPing()
+	local best, bestPing = nil, nil
+	EachServer(function(s)
+		local p = tonumber(s.ping)
+		if p then
+			if bestPing == nil or p < bestPing then best, bestPing = s, p end
+		elseif best == nil then best = s end
+	end)
+	if not best then ServerNote("join lowest ping", "no servers found") return end
+	HopToServer(best.id, "join lowest ping")
+end
+
 local function OpenSettingsPopup(anchor)
 	local entries = FeatureEntries("watermark", WmOpts or {})
 	entries[1].n = "watermark"
@@ -953,6 +1017,14 @@ local function OpenSettingsPopup(anchor)
 		{ t = "color", n = "accent color", get = function() return Accent end, set = SetAccent },
 	}
 	for _, e in ipairs(rest) do table.insert(entries, e) end
+	local server = {
+		{ t = "label", n = "server" },
+		{ t = "button", n = "rejoin", cb = RejoinServer },
+		{ t = "button", n = "server hop", cb = HopServer },
+		{ t = "button", n = "join lowest players", cb = JoinLowestPlayers },
+		{ t = "button", n = "join lowest ping", cb = JoinLowestPing },
+	}
+	for _, e in ipairs(server) do table.insert(entries, e) end
 	OpenPopup("settings", anchor, entries, function(w, h) return Vector2.new(107, DESIGN_H - h - 14) end, "SettingsPopup")
 end
 
@@ -1424,8 +1496,9 @@ function Library:Window(o)
 		local y = 143 + (idx - 1) * 74
 		local tab = setmetatable({ Subs = {}, Current = nil, Scrolling = false }, TabMT)
 		tab.Icon = Icon(Sidebar, to.Icon or "box", 46, y, 34, C.Off)
+		tab.Icon.ZIndex = 2
 		local b = New("TextButton", { Text = "", BackgroundTransparency = 1, AnchorPoint = Vector2.new(0.5, 0.5),
-			Position = UDim2.fromOffset(46, y), Size = UDim2.fromOffset(70, 70) }, Sidebar)
+			Position = UDim2.fromOffset(46, y), Size = UDim2.fromOffset(70, 70), ZIndex = 2 }, Sidebar)
 
 		tab.Scroll = New("ScrollingFrame", { BackgroundTransparency = 1, BorderSizePixel = 0, Visible = false,
 			Position = UDim2.fromOffset(97, 0), Size = UDim2.fromOffset(DESIGN_W - 97, 77), CanvasSize = UDim2.new(),
