@@ -315,7 +315,7 @@ local function MakeOverlay(x, y, w, h)
 	CloseDrop()
 	DropBlocker = New("TextButton", { Text = "", BackgroundTransparency = 1, Size = UDim2.fromScale(1, 1), ZIndex = 65 }, Root)
 	DropBlocker.MouseButton1Click:Connect(CloseDrop)
-	Drop = New("Frame", { BackgroundColor3 = WHITE, BorderSizePixel = 0, ZIndex = 70,
+	Drop = New("Frame", { BackgroundColor3 = Color3.fromRGB(0, 0, 0), BorderSizePixel = 0, ZIndex = 70,
 		Position = UDim2.fromOffset(x, y + 8), Size = UDim2.fromOffset(w, h) }, Root)
 	Corner(Drop, 8)
 	Grad(Drop, Color3.fromRGB(8, 5, 14), Color3.fromRGB(0, 0, 0), 60)
@@ -561,7 +561,7 @@ local function AddWidget(parent, e, x, y, w)
 	elseif t == "label" then
 		extra = Text(parent, e.n, x, cy, w, 19, e.col or C.Off)
 	elseif t == "button" then
-		local bg = New("Frame", { BackgroundColor3 = WHITE, BorderSizePixel = 0, Position = UDim2.fromOffset(x, cy - 17),
+		local bg = New("Frame", { BackgroundColor3 = Color3.fromRGB(0, 0, 0), BorderSizePixel = 0, Position = UDim2.fromOffset(x, cy - 17),
 			Size = UDim2.fromOffset(w, 34) }, parent)
 		Corner(bg, 8)
 		Grad(bg, Color3.fromRGB(12, 6, 22), Color3.fromRGB(10, 6, 18), 0)
@@ -605,7 +605,7 @@ local function OpenPopup(title, anchor, entries, posFn, popName)
 	Blocker = New("TextButton", { Text = "", BackgroundTransparency = 1, Size = UDim2.fromScale(1, 1), ZIndex = 40 }, Root)
 	Blocker.MouseButton1Click:Connect(ClosePopup)
 	local pos = posFn and posFn(w, h) or PlaceNear(anchor, w, h)
-	Popup = New("Frame", { BackgroundColor3 = WHITE, BorderSizePixel = 0, ZIndex = 50,
+	Popup = New("Frame", { BackgroundColor3 = Color3.fromRGB(0, 0, 0), BorderSizePixel = 0, ZIndex = 50,
 		Position = UDim2.fromOffset(pos.X, pos.Y + 10), Size = UDim2.fromOffset(w, h) }, Root)
 	Popup.Name = popName or "Popup"
 	Corner(Popup, 8)
@@ -1042,11 +1042,10 @@ function SectionMT:Separator()
 end
 
 local function MakePanel(parent, title, icon, order)
-	local p = New("Frame", { BackgroundColor3 = WHITE, BorderSizePixel = 0, Size = UDim2.fromOffset(412, 75),
+	local p = New("Frame", { BackgroundColor3 = Color3.fromRGB(0, 0, 0), BorderSizePixel = 0, Size = UDim2.fromOffset(412, 75),
 		LayoutOrder = order }, parent)
 	Corner(p, 10)
 	local g = Grad(p, Color3.fromRGB(8, 5, 14), Color3.fromRGB(0, 0, 0), 90)
-	g.Transparency = NumberSequence.new(0.35, 0.55)
 	Grad(Stroke(p, WHITE, 1, 0.2), Color3.fromRGB(60, 30, 110), Color3.fromRGB(168, 130, 255), 55)
 	local bar = New("Frame", { BackgroundColor3 = WHITE, BorderSizePixel = 0,
 		Position = UDim2.fromOffset(13, 15), Size = UDim2.fromOffset(6, 26) }, p)
@@ -1098,7 +1097,7 @@ function Library:Window(o)
 	if not okp or not Gui.Parent then Gui.Parent = Players.LocalPlayer:WaitForChild("PlayerGui") end
 
 	Root = New("Frame", { Name = "Window", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5),
-		Size = UDim2.fromOffset(DESIGN_W, DESIGN_H), BackgroundColor3 = WHITE, BackgroundTransparency = 0.04,
+		Size = UDim2.fromOffset(DESIGN_W, DESIGN_H), BackgroundColor3 = Color3.fromRGB(0, 0, 0), BackgroundTransparency = 0,
 		BorderSizePixel = 0, ZIndex = 1 }, Gui)
 	Corner(Root, 18)
 	Grad(Root, Color3.fromRGB(8, 4, 16), Color3.fromRGB(0, 0, 0), 55, Color3.fromRGB(5, 2, 10))
@@ -1153,10 +1152,10 @@ function Library:Window(o)
 		end
 	end)
 
-	local Sidebar = New("Frame", { BackgroundColor3 = WHITE, BorderSizePixel = 0, Size = UDim2.fromOffset(97, DESIGN_H) }, Root)
+	local Sidebar = New("Frame", { BackgroundColor3 = Color3.fromRGB(0, 0, 0), BorderSizePixel = 0, Size = UDim2.fromOffset(97, DESIGN_H) }, Root)
 	Corner(Sidebar, 18)
 	Grad(Sidebar, Color3.fromRGB(8, 4, 16), Color3.fromRGB(0, 0, 0), 90)
-	local Filler = New("Frame", { BackgroundColor3 = WHITE, BorderSizePixel = 0,
+	local Filler = New("Frame", { BackgroundColor3 = Color3.fromRGB(0, 0, 0), BorderSizePixel = 0,
 		Position = UDim2.fromOffset(60, 0), Size = UDim2.fromOffset(37, DESIGN_H) }, Sidebar)
 	Grad(Filler, Color3.fromRGB(8, 4, 16), Color3.fromRGB(0, 0, 0), 90)
 
@@ -1170,7 +1169,7 @@ function Library:Window(o)
 	end
 	Line(Sidebar, 22, 90, 52)
 
-	local SideSel = New("Frame", { BackgroundColor3 = WHITE, BorderSizePixel = 0, AnchorPoint = Vector2.new(0.5, 0.5),
+	local SideSel = New("Frame", { BackgroundColor3 = Color3.fromRGB(12, 6, 22), BorderSizePixel = 0, AnchorPoint = Vector2.new(0.5, 0.5),
 		Position = UDim2.fromOffset(46, 143), Size = UDim2.fromOffset(62, 62), Visible = false }, Sidebar)
 	Corner(SideSel, 12)
 	Grad(SideSel, Color3.fromRGB(30, 14, 55), Color3.fromRGB(12, 6, 22), 45)
@@ -1232,7 +1231,7 @@ function Library:Window(o)
 			Position = UDim2.fromOffset(NF_W + 40, 0), Size = UDim2.fromScale(1, 1) }, wrap)
 		Corner(card, 8)
 
-		local bg = New("Frame", { BackgroundColor3 = WHITE, BorderSizePixel = 0, Size = UDim2.fromScale(1, 1) }, card)
+		local bg = New("Frame", { BackgroundColor3 = Color3.fromRGB(0, 0, 0), BorderSizePixel = 0, Size = UDim2.fromScale(1, 1) }, card)
 		Corner(bg, 8)
 		Grad(bg, Color3.fromRGB(8, 5, 14), Color3.fromRGB(0, 0, 0), 60)
 		Grad(Stroke(bg, WHITE, 1, 0.1), Color3.fromRGB(60, 30, 110), Color3.fromRGB(168, 130, 255), 45)
@@ -1433,7 +1432,7 @@ function Library:Window(o)
 			AutomaticCanvasSize = Enum.AutomaticSize.X, ScrollingDirection = Enum.ScrollingDirection.X,
 			ScrollBarThickness = 0, ScrollBarImageColor3 = Color3.fromRGB(60, 30, 110) }, Root)
 		tab.Spacer = New("Frame", { BackgroundTransparency = 1, Size = UDim2.fromOffset(1, 1) }, tab.Scroll)
-		tab.Pill = New("Frame", { BackgroundColor3 = WHITE, BackgroundTransparency = 0.2, BorderSizePixel = 0, Visible = false,
+		tab.Pill = New("Frame", { BackgroundColor3 = Color3.fromRGB(124, 58, 237), BackgroundTransparency = 0, BorderSizePixel = 0, Visible = false,
 			Position = UDim2.fromOffset(TAB_PAD, 11), Size = UDim2.fromOffset(274, 54) }, tab.Scroll)
 		Corner(tab.Pill, 10)
 		Grad(tab.Pill, Color3.fromRGB(168, 130, 255), Color3.fromRGB(124, 58, 237), 0)
@@ -1505,7 +1504,7 @@ function Library:Window(o)
 			ZIndex = 3 }, Gui)
 		table.insert(ExtScales, New("UIScale", { Scale = ExtScale() }, KbRoot))
 
-		local KbBg = New("TextButton", { Text = "", AutoButtonColor = false, BackgroundColor3 = WHITE, BorderSizePixel = 0,
+		local KbBg = New("TextButton", { Text = "", AutoButtonColor = false, BackgroundColor3 = Color3.fromRGB(0, 0, 0), BorderSizePixel = 0,
 			Size = UDim2.fromScale(1, 1) }, KbRoot)
 		Corner(KbBg, 8)
 		Grad(KbBg, Color3.fromRGB(8, 5, 14), Color3.fromRGB(0, 0, 0), 60)
@@ -1587,7 +1586,7 @@ function Library:Window(o)
 		wc.kind = "toggle"
 		wc.enabled = true
 
-		local WmRoot = New("TextButton", { Text = "", AutoButtonColor = false, BackgroundColor3 = WHITE, BorderSizePixel = 0,
+		local WmRoot = New("TextButton", { Text = "", AutoButtonColor = false, BackgroundColor3 = Color3.fromRGB(0, 0, 0), BorderSizePixel = 0,
 			Visible = false, AutomaticSize = Enum.AutomaticSize.X, AnchorPoint = Vector2.new(1, 0),
 			Position = UDim2.new(1, -16, 0, 16), Size = UDim2.fromOffset(0, 40), ZIndex = 2 }, Gui)
 		Corner(WmRoot, 8)
@@ -1689,7 +1688,7 @@ function Library:Window(o)
 	end
 
 	if UIS.TouchEnabled then
-		local T = New("TextButton", { Text = "", AutoButtonColor = false, BackgroundColor3 = WHITE,
+		local T = New("TextButton", { Text = "", AutoButtonColor = false, BackgroundColor3 = Color3.fromRGB(0, 0, 0),
 			Position = UDim2.new(0, 12, 0.5, -22), Size = UDim2.fromOffset(44, 44) }, Gui)
 		Corner(T, 12)
 		Grad(T, Color3.fromRGB(10, 6, 18), Color3.fromRGB(0, 0, 0), 90)
