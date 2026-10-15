@@ -1025,6 +1025,16 @@ local function OpenSettingsPopup(anchor)
 		{ t = "button", n = "join lowest ping", cb = JoinLowestPing },
 	}
 	for _, e in ipairs(server) do table.insert(entries, e) end
+	local system = {
+		{ t = "toggle", n = "keybind list",
+			get = function() return Cfg("keybind list").enabled end,
+			set = function(v) SetEnabled("keybind list", v) end },
+		{ t = "slider", n = "keybind opacity", min = 10, max = 100, suf = "%", step = 5,
+			get = function() return Cfg("keybind list").options.opacity or 100 end,
+			set = function(v) Cfg("keybind list").options.opacity = v end },
+		{ t = "button", n = "configs...", cb = function() OpenConfigPopup() end },
+	}
+	for _, e in ipairs(system) do table.insert(entries, e) end
 	OpenPopup("settings", anchor, entries, function(w, h) return Vector2.new(107, DESIGN_H - h - 14) end, "SettingsPopup")
 end
 
@@ -1563,15 +1573,11 @@ function Library:Window(o)
 	end
 
 	function WindowObj:CreateConfigSystem()
-		SideButton(Slot(), "file", "ConfigPopup", OpenConfigPopup)
 		task.defer(Configs.RunAutoload)
 		return Configs
 	end
 
 	function WindowObj:CreateKeybindList()
-		local KbIcon = Icon(Sidebar, "keyboard", 46, Slot(), 34, DIM)
-		local y = KbIcon.Position.Y.Offset
-
 		local KbRoot = New("CanvasGroup", { BackgroundTransparency = 1, BorderSizePixel = 0, Visible = false,
 			AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -16, 0.5, 0), Size = UDim2.fromOffset(300, 90),
 			ZIndex = 3 }, Gui)
@@ -1635,16 +1641,11 @@ function Library:Window(o)
 			if not Gui.Parent then return end
 			local on = kc.enabled
 			KbRoot.Visible = on
-			KbIcon.ImageColor3 = on and C.On or DIM
 			if on then
 				KbRoot.GroupTransparency = 1 - math.clamp((kc.options.opacity or 100) / 100, 0.1, 1)
 				Rebuild()
 			end
 		end)
-
-		local kbBtn = New("TextButton", { Text = "", BackgroundTransparency = 1, AnchorPoint = Vector2.new(0.5, 0.5),
-			Position = UDim2.fromOffset(46, y), Size = UDim2.fromOffset(70, 70) }, Sidebar)
-		kbBtn.MouseButton1Click:Connect(function() SetEnabled("keybind list", not kc.enabled) end)
 	end
 
 	function WindowObj:CreateSettingSystem()
