@@ -318,7 +318,7 @@ local function MakeOverlay(x, y, w, h)
 	Drop = New("Frame", { BackgroundColor3 = Color3.fromRGB(0, 0, 0), BorderSizePixel = 0, ZIndex = 70,
 		Position = UDim2.fromOffset(x, y + 8), Size = UDim2.fromOffset(w, h) }, Root)
 	Corner(Drop, 8)
-	Grad(Drop, Color3.fromRGB(0, 0, 0), Color3.fromRGB(0, 0, 0), 60)
+	Grad(Drop, Color3.fromRGB(16, 12, 26), Color3.fromRGB(5, 3, 10), 60)
 	Grad(Stroke(Drop, WHITE, 1, 0.1), Color3.fromRGB(60, 30, 110), Color3.fromRGB(168, 130, 255), 45)
 	TweenService:Create(Drop, Tw(0.12), { Position = UDim2.fromOffset(x, y) }):Play()
 	return Drop
@@ -609,7 +609,7 @@ local function OpenPopup(title, anchor, entries, posFn, popName)
 		Position = UDim2.fromOffset(pos.X, pos.Y + 10), Size = UDim2.fromOffset(w, h) }, Root)
 	Popup.Name = popName or "Popup"
 	Corner(Popup, 8)
-	Grad(Popup, Color3.fromRGB(0, 0, 0), Color3.fromRGB(0, 0, 0), 60)
+	Grad(Popup, Color3.fromRGB(16, 12, 26), Color3.fromRGB(5, 3, 10), 60)
 	Grad(Stroke(Popup, WHITE, 1, 0.1), Color3.fromRGB(60, 30, 110), Color3.fromRGB(168, 130, 255), 45)
 	TweenService:Create(Popup, Tw(0.12), { Position = UDim2.fromOffset(pos.X, pos.Y) }):Play()
 	Text(Popup, title, 16, 28, 300, 21, Color3.fromRGB(255, 255, 255))
@@ -1045,7 +1045,7 @@ local function MakePanel(parent, title, icon, order)
 	local p = New("Frame", { BackgroundColor3 = Color3.fromRGB(0, 0, 0), BorderSizePixel = 0, Size = UDim2.fromOffset(412, 75),
 		LayoutOrder = order }, parent)
 	Corner(p, 10)
-	local g = Grad(p, Color3.fromRGB(0, 0, 0), Color3.fromRGB(0, 0, 0), 90)
+	local g = Grad(p, Color3.fromRGB(16, 12, 26), Color3.fromRGB(5, 3, 10), 90)
 	Grad(Stroke(p, WHITE, 1, 0.2), Color3.fromRGB(60, 30, 110), Color3.fromRGB(168, 130, 255), 55)
 	local bar = New("Frame", { BackgroundColor3 = WHITE, BorderSizePixel = 0,
 		Position = UDim2.fromOffset(13, 15), Size = UDim2.fromOffset(6, 26) }, p)
@@ -1100,7 +1100,7 @@ function Library:Window(o)
 		Size = UDim2.fromOffset(DESIGN_W, DESIGN_H), BackgroundColor3 = Color3.fromRGB(0, 0, 0), BackgroundTransparency = 0,
 		BorderSizePixel = 0, ZIndex = 1 }, Gui)
 	Corner(Root, 18)
-	Grad(Root, Color3.fromRGB(0, 0, 0), Color3.fromRGB(0, 0, 0), 55, Color3.fromRGB(0, 0, 0))
+	Grad(Root, Color3.fromRGB(16, 12, 26), Color3.fromRGB(5, 3, 10), 55, Color3.fromRGB(10, 7, 18))
 	Grad(Stroke(Root, WHITE, 1.5, 0.15), Color3.fromRGB(60, 30, 110), Color3.fromRGB(168, 130, 255), 45)
 	Scale = New("UIScale", {}, Root)
 
@@ -1154,10 +1154,10 @@ function Library:Window(o)
 
 	local Sidebar = New("Frame", { BackgroundColor3 = Color3.fromRGB(0, 0, 0), BorderSizePixel = 0, Size = UDim2.fromOffset(97, DESIGN_H) }, Root)
 	Corner(Sidebar, 18)
-	Grad(Sidebar, Color3.fromRGB(0, 0, 0), Color3.fromRGB(0, 0, 0), 90)
+	Grad(Sidebar, Color3.fromRGB(16, 12, 26), Color3.fromRGB(5, 3, 10), 90)
 	local Filler = New("Frame", { BackgroundColor3 = Color3.fromRGB(0, 0, 0), BorderSizePixel = 0,
 		Position = UDim2.fromOffset(60, 0), Size = UDim2.fromOffset(37, DESIGN_H) }, Sidebar)
-	Grad(Filler, Color3.fromRGB(0, 0, 0), Color3.fromRGB(0, 0, 0), 90)
+	Grad(Filler, Color3.fromRGB(16, 12, 26), Color3.fromRGB(5, 3, 10), 90)
 
 	local Mark = Icon(Sidebar, Logo, 46, 45, 46, WHITE)
 	if IsCustomAsset(Logo) then
@@ -1233,7 +1233,7 @@ function Library:Window(o)
 
 		local bg = New("Frame", { BackgroundColor3 = Color3.fromRGB(0, 0, 0), BorderSizePixel = 0, Size = UDim2.fromScale(1, 1) }, card)
 		Corner(bg, 8)
-		Grad(bg, Color3.fromRGB(0, 0, 0), Color3.fromRGB(0, 0, 0), 60)
+		Grad(bg, Color3.fromRGB(16, 12, 26), Color3.fromRGB(5, 3, 10), 60)
 		Grad(Stroke(bg, WHITE, 1, 0.1), Color3.fromRGB(60, 30, 110), Color3.fromRGB(168, 130, 255), 45)
 
 		local bar = New("Frame", { BackgroundColor3 = WHITE, BorderSizePixel = 0, Position = UDim2.fromOffset(12, 12),
@@ -1507,7 +1507,7 @@ function Library:Window(o)
 		local KbBg = New("TextButton", { Text = "", AutoButtonColor = false, BackgroundColor3 = Color3.fromRGB(0, 0, 0), BorderSizePixel = 0,
 			Size = UDim2.fromScale(1, 1) }, KbRoot)
 		Corner(KbBg, 8)
-		Grad(KbBg, Color3.fromRGB(0, 0, 0), Color3.fromRGB(0, 0, 0), 60)
+		Grad(KbBg, Color3.fromRGB(16, 12, 26), Color3.fromRGB(5, 3, 10), 60)
 		Grad(Stroke(KbBg, WHITE, 1, 0.1), Color3.fromRGB(60, 30, 110), Color3.fromRGB(168, 130, 255), 45)
 		MakeDraggable(KbBg, KbRoot, KbClamp)
 
@@ -1590,7 +1590,7 @@ function Library:Window(o)
 			Visible = false, AutomaticSize = Enum.AutomaticSize.X, AnchorPoint = Vector2.new(1, 0),
 			Position = UDim2.new(1, -16, 0, 16), Size = UDim2.fromOffset(0, 40), ZIndex = 2 }, Gui)
 		Corner(WmRoot, 8)
-		Grad(WmRoot, Color3.fromRGB(0, 0, 0), Color3.fromRGB(0, 0, 0), 60)
+		Grad(WmRoot, Color3.fromRGB(16, 12, 26), Color3.fromRGB(5, 3, 10), 60)
 		Grad(Stroke(WmRoot, WHITE, 1, 0.1), Color3.fromRGB(60, 30, 110), Color3.fromRGB(168, 130, 255), 45)
 		table.insert(ExtScales, New("UIScale", { Scale = ExtScale() }, WmRoot))
 		New("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, SortOrder = Enum.SortOrder.LayoutOrder,
@@ -1693,8 +1693,8 @@ function Library:Window(o)
 		Corner(T, 12)
 		Grad(T, Color3.fromRGB(10, 6, 18), Color3.fromRGB(0, 0, 0), 90)
 		Stroke(T, Color3.fromRGB(60, 30, 110), 1, 0.2)
-		local TM = Icon(T, Logo, 22, 22, 26, IsCustomAsset(Logo) and WHITE or Accent)
-		if IsCustomAsset(Logo) then TM.ScaleType = Enum.ScaleType.Fit end
+		local TM = Icon(T, "rbxassetid://99047291822954", 22, 22, 26, WHITE)
+		TM.ScaleType = Enum.ScaleType.Fit
 		T.MouseButton1Click:Connect(function()
 			Root.Visible = not Root.Visible
 			if not Root.Visible then ClosePopup() end
