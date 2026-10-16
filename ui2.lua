@@ -6,7 +6,7 @@ local HttpService = game:GetService("HttpService")
 local RunService = game:GetService("RunService")
 
 local Library = {}
-Library.UI_VERSION = "settings-tab-3"
+Library.UI_VERSION = "settings-tab-4"
 
 local Lucide
 pcall(function()
@@ -503,6 +503,11 @@ end
 local function WH(e) return e.t == "slider" and 62 or (e.t == "label" and 36 or 44.5) end
 
 local function AddWidget(parent, e, x, y, w)
+	if type(y) ~= "number" then
+		warn("[Paw] AddWidget bad y=" .. tostring(y) .. " row=" .. tostring(e and e.n) .. " type=" .. tostring(e and e.t))
+		warn(debug.traceback())
+		y = 0
+	end
 	local h = WH(e)
 	local cy = y + h / 2
 	local t = e.t
