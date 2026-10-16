@@ -932,7 +932,7 @@ local function Value(sec, t, o)
 	AddEntry(sec, e)
 	return {
 		Get = function() return e.get() end,
-		Set = function(_, v) e.set(v); RefreshAll() end,
+		Set = function(_, v) e.set(v) end,
 	}
 end
 
@@ -1490,13 +1490,18 @@ function Library:Window(o)
 			KbRoot.Size = UDim2.fromOffset(300, 56 + math.max(#items, 1) * 32 + 12)
 		end
 
+		local lastKb = 0
 		RunService.Heartbeat:Connect(function()
 			if not Gui.Parent then return end
 			local on = kc.enabled
 			KbRoot.Visible = on
 			if on then
 				KbRoot.GroupTransparency = 1 - math.clamp((kc.options.opacity or 100) / 100, 0.1, 1)
-				Rebuild()
+				local now = os.clock()
+				if now - lastKb >= 0.25 then
+					lastKb = now
+					Rebuild()
+				end
 			end
 		end)
 	end
