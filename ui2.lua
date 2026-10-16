@@ -6,7 +6,7 @@ local HttpService = game:GetService("HttpService")
 local RunService = game:GetService("RunService")
 
 local Library = {}
-Library.UI_VERSION = "settings-tab-2"
+Library.UI_VERSION = "settings-tab-3"
 
 local Lucide
 pcall(function()
@@ -1031,6 +1031,7 @@ end
 
 function Library:Window(o)
 	o = o or {}
+	pcall(function() print("[Paw] ui version: " .. tostring(Library.UI_VERSION or "unknown")) end)
 	local Title = tostring(o.Title or "Paw")
 	local Logo = o.Logo or "rbxassetid://81441172534384"
 	Folder = tostring(o.ConfigFolder or "Paw")
@@ -1427,11 +1428,15 @@ function Library:Window(o)
 
 
 	function WindowObj:CreateConfigSystem()
+		if WindowObj._hasConfig then return Configs end
+		WindowObj._hasConfig = true
 		task.defer(Configs.RunAutoload)
 		return Configs
 	end
 
 	function WindowObj:CreateKeybindList()
+		if WindowObj._hasKeybinds then return end
+		WindowObj._hasKeybinds = true
 		local KbRoot = New("CanvasGroup", { BackgroundTransparency = 1, BorderSizePixel = 0, Visible = false,
 			AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -16, 0.5, 0), Size = UDim2.fromOffset(300, 90),
 			ZIndex = 3 }, Gui)
@@ -1572,6 +1577,8 @@ function Library:Window(o)
 	end
 
 	function WindowObj:CreateSettingSystem()
+		if WindowObj._hasSettings then return end
+		WindowObj._hasSettings = true
 		WmOpts = {
 			Spec({ Type = "MultiDropdown", Name = "show", List = { "fps", "ping", "time", "name" }, Default = { "fps", "ping" } }),
 			Spec({ Type = "Input", Name = "icon", Placeholder = "lucide icon...", Default = Logo }),
@@ -1581,10 +1588,16 @@ function Library:Window(o)
 		local wc = Cfg("watermark")
 		wc.kind = "toggle"
 		wc.enabled = true
+		
+		local function build(label, fn)
+		local ok, err = pcall(fn)
+		if not ok then warn("[Paw] settings '" .. tostring(label) .. "' failed: " .. tostring(err)) end
+		end
 
 		local side = WindowObj:Tab(WindowObj, { Icon = "sliders-horizontal" })
 		local sub = side:SubTab({ Name = "settings", Icon = "sliders-horizontal" })
 
+		build("menu", function()
 		local menu = sub:Section({ Name = "menu", Side = "Left", Icon = "sliders-horizontal" })
 		Cfg("menu key").bind = MenuKey
 		local menuKeyEntry = InlineEntry({ t = "keybind", n = "menu key", def = MenuKey })
@@ -1597,22 +1610,30 @@ function Library:Window(o)
 		AddEntry(menu, InlineEntry({ t = "slider", n = "tween speed", min = 25, max = 200, def = 100, suf = "%", step = 5 }))
 		AddEntry(menu, InlineEntry({ t = "dropdown", n = "easing style", list = EaseList, def = "Quart" }))
 		AddEntry(menu, { t = "color", n = "accent color", get = function() return Accent end, set = SetAccent })
+		end)
 
+		build("keybinds", function()
 		local kb = sub:Section({ Name = "keybinds", Side = "Left", Icon = "keyboard" })
 		kb:Toggle({ Name = "show keybinds", Flag = "keybind list", Default = true })
 		AddEntry(kb, { t = "slider", n = "opacity", min = 10, max = 100, suf = "%", step = 5,
 			get = function() return Cfg("keybind list").options.opacity or 100 end,
 			set = function(v) Cfg("keybind list").options.opacity = v end })
+		end)
 
+		build("watermark", function()
 		local wm = sub:Section({ Name = "watermark", Side = "Right", Icon = "eye" })
 		wm:Toggle({ Name = "watermark", Default = true, Options = WmOpts })
+		end)
 
+		build("server", function()
 		local srv = sub:Section({ Name = "server", Side = "Right", Icon = "server" })
 		srv:Button({ Name = "rejoin", Callback = RejoinServer })
 		srv:Button({ Name = "server hop", Callback = HopServer })
 		srv:Button({ Name = "join lowest players", Callback = JoinLowestPlayers })
 		srv:Button({ Name = "join lowest ping", Callback = JoinLowestPing })
+		end)
 
+		build("configs", function()
 		RefreshList()
 		local cfg = sub:Section({ Name = "configs", Side = "Right", Icon = "file" })
 		AddEntry(cfg, { t = "input", n = "config name", ph = "enter name...",
@@ -1626,6 +1647,7 @@ function Library:Window(o)
 		cfg:Button({ Name = "remove autoload", Callback = function() Configs.RemoveAutoload(); RefreshAll() end })
 		Configs.AutoLabel = AddEntry(cfg, { t = "label", n = "autoload: " .. (Store.GetAuto() or "none"), col = C.Off })
 		UpdateAutoLabel()
+		end)
 	end
 
 	if UIS.TouchEnabled then
@@ -1648,6 +1670,11 @@ function Library:Window(o)
 
 	WindowObj.Config = Config
 	WindowObj.Configs = Configs
+	task.defer(function()
+		pcall(function() WindowObj:CreateConfigSystem() end)
+		pcall(function() WindowObj:CreateKeybindList() end)
+		pcall(function() WindowObj:CreateSettingSystem() end)
+	end)
 	return WindowObj
 end
 
