@@ -6,6 +6,7 @@ local HttpService = game:GetService("HttpService")
 local RunService = game:GetService("RunService")
 
 local Library = {}
+Library.UI_VERSION = "settings-tab-2"
 
 local Lucide
 pcall(function()
