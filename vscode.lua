@@ -2172,24 +2172,6 @@ local Library do
                     g.Parent = topLine
                 end
 
-                -- Drop shadow
-                do
-                    local shadow = Instance.new("ImageLabel")
-                    shadow.Name = "\0"
-                    shadow.AnchorPoint = Vector2.new(0.5, 0.5)
-                    shadow.Position = UDim2.new(0.5, 0, 0.5, 6)
-                    shadow.Size = UDim2.new(1, 40, 1, 40)
-                    shadow.BackgroundTransparency = 1
-                    shadow.Image = "rbxassetid://6015897843"
-                    shadow.ImageColor3 = Color3.fromRGB(0, 0, 0)
-                    shadow.ImageTransparency = 0.5
-                    shadow.ScaleType = Enum.ScaleType.Slice
-                    shadow.SliceCenter = Rect.new(49, 49, 450, 450)
-                    shadow.ZIndex = 0
-                    shadow.Parent = Items["MainFrame"].Instance.Parent
-                    Items["MainFrame"].Instance.ZIndex = 1
-                end
-
                 local uiScale = Instance.new("UIScale")
                 uiScale.Parent = Items["MainFrame"].Instance
                 if isMobile then
