@@ -135,42 +135,6 @@ local Library do
         end
     end
 
-    Library.RouteInput = function(self, Kind, Handler, IsActive)
-        local list = _InputMoved
-        if Kind == "Press" then
-            list = _InputPress
-        elseif Kind == "Release" then
-            list = _InputRelease
-        end
-
-        local Entry = {
-            Handler = Handler,
-            Active = IsActive or function() return true end,
-            Dead = false,
-        }
-        TableInsert(list, Entry)
-        return Entry
-    end
-
-    Library.UnrouteInput = function(self, Entry)
-        if Entry and not Entry.Dead then
-            Entry.Dead = true
-        end
-    end
-
-    local RouterConnections = {
-        UserInputService.InputChanged:Connect(function(Input)
-            RouteMoved(_InputMoved, Input)
-        end),
-        UserInputService.InputBegan:Connect(function(Input)
-            RouteAll(_InputPress, Input)
-        end),
-        UserInputService.InputEnded:Connect(function(Input)
-            RouteAll(_InputRelease, Input)
-        end),
-    }
-    Library.RouterConnections = RouterConnections
-
     local _touchIsSwiping = false
     if _isMobileDevice then
         local _touchOrigin = Vector2New(0, 0)
@@ -239,6 +203,41 @@ local Library do
     Library.__index = Library
     Library.Sections.__index = Library.Sections
     Library.Pages.__index = Library.Pages
+
+    Library.RouteInput = function(self, Kind, Handler, IsActive)
+        local list = _InputMoved
+        if Kind == "Press" then
+            list = _InputPress
+        elseif Kind == "Release" then
+            list = _InputRelease
+        end
+
+        local Entry = {
+            Handler = Handler,
+            Active = IsActive or function() return true end,
+            Dead = false,
+        }
+        TableInsert(list, Entry)
+        return Entry
+    end
+
+    Library.UnrouteInput = function(self, Entry)
+        if Entry and not Entry.Dead then
+            Entry.Dead = true
+        end
+    end
+
+    Library.RouterConnections = {
+        UserInputService.InputChanged:Connect(function(Input)
+            RouteMoved(_InputMoved, Input)
+        end),
+        UserInputService.InputBegan:Connect(function(Input)
+            RouteAll(_InputPress, Input)
+        end),
+        UserInputService.InputEnded:Connect(function(Input)
+            RouteAll(_InputRelease, Input)
+        end),
+    }
 
     local Keys = {
         ["Unknown"]           = "Unknown",
