@@ -5562,5 +5562,30 @@ end
 Library.Notification = Library.Notify
 Library.Toast = Library.Notify
 
+do
+    local function PruneOverlays(Root)
+        for _, inst in ipairs(Root:GetDescendants()) do
+            if inst:IsA("ImageLabel") then
+                local sz = inst.AbsoluteSize
+                local transparent = inst.ImageTransparency
+                if transparent > 0 and (sz.X > 900 or sz.Y > 700) then
+                    inst:Destroy()
+                end
+            end
+        end
+    end
+
+    local origWindow = Library.Window
+    Library.Window = function(self, Data)
+        local Win = origWindow(self, Data)
+        task.defer(function()
+            if Library and Library.Holder and Library.Holder.Instance then
+                PruneOverlays(Library.Holder.Instance)
+            end
+        end)
+        return Win
+    end
+end
+
 getgenv().Library = Library
 return Library
