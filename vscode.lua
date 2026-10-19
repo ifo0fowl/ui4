@@ -1597,14 +1597,19 @@ local Library do
                 local WindowInst = Items["ColorpickerWindow"].Instance
                 local ButtonInst = Items["ColorpickerButton"].Instance
 
-                RenderStepped = Library.RouteInput(nil, function()
+                local function SyncPosition()
                     WindowInst.Position = UDim2New(
                         0,
                         ButtonInst.AbsolutePosition.X,
                         0,
                         ButtonInst.AbsolutePosition.Y + ButtonInst.AbsoluteSize.Y + 5
                     )
-                end, function() return Colorpicker.IsOpen end)
+                end
+
+                SyncPosition()
+                task.defer(SyncPosition)
+
+                RenderStepped = Library.RouteInput(nil, SyncPosition, function() return Colorpicker.IsOpen end)
 
                 for Index, Value in Library.OpenFrames do 
                         if Value ~= Colorpicker then
@@ -1889,14 +1894,19 @@ local Library do
                 local KeyWindowInst = Items["KeybindWindow"].Instance
                 local KeyButtonInst = Items["KeyButton"].Instance
 
-                RenderStepped = Library.RouteInput(nil, function()
+                local function SyncPosition()
                     KeyWindowInst.Position = UDim2New(
                         0,
                         KeyButtonInst.AbsolutePosition.X,
                         0,
                         KeyButtonInst.AbsolutePosition.Y + KeyButtonInst.AbsoluteSize.Y + 5
                     )
-                end, function() return Keybind.IsOpen end)
+                end
+
+                SyncPosition()
+                task.defer(SyncPosition)
+
+                RenderStepped = Library.RouteInput(nil, SyncPosition, function() return Keybind.IsOpen end)
 
                 for Index, Value in Library.OpenFrames do 
                     if Value ~= Keybind then
@@ -3904,12 +3914,13 @@ end
                         end
                     end)
                     
-                    -- Position-only follower driven by the shared input router, so an open
-                    -- dropdown costs no extra RenderStepped connection.
+                    -- Positioning must run on open, not only on mouse movement: the
+                    -- router fires on InputChanged, so without this the list
+                    -- renders at its default spot until the mouse moves.
                     local lastPosX = -1
                     local lastPosY = -1
                     local lastW = -1
-                    RenderStepped = Library.RouteInput(nil, function()
+                    local function SyncPosition()
                         local realPos = RealDropdownInst.AbsolutePosition
                         local realSize = RealDropdownInst.AbsoluteSize
                         local posX = realPos.X - _guiInset.X
@@ -3924,7 +3935,17 @@ end
                                 OptionHolderInst.Size = UDim2New(0, realSize.X, cur.Y.Scale, cur.Y.Offset)
                             end
                         end
-                    end, function() return Dropdown.IsOpen end)
+                    end
+
+                    SyncPosition()
+                    task.defer(function()
+                        if Dropdown.IsOpen then
+                            SyncCanvas()
+                            SyncPosition()
+                        end
+                    end)
+
+                    RenderStepped = Library.RouteInput(nil, SyncPosition, function() return Dropdown.IsOpen end)
 
                     local toClose = {}
                     for Index, Value in Library.OpenFrames do 
