@@ -204,7 +204,7 @@ local Library do
     Library.Sections.__index = Library.Sections
     Library.Pages.__index = Library.Pages
 
-    Library.RouteInput = function(self, Kind, Handler, IsActive)
+    Library.RouteInput = function(Kind, Handler, IsActive)
         local list = _InputMoved
         if Kind == "Press" then
             list = _InputPress
@@ -2058,7 +2058,7 @@ local Library do
             end)
         end)
 
-        Library.RouteInput(nil, "Press", function(Input)
+        Library.RouteInput("Press", function(Input)
             if Keybind.Value == "None" then
                 return
             end
@@ -2094,7 +2094,7 @@ local Library do
             end
         end, function() return true end)
 
-        Library.RouteInput(nil, "Release", function(Input)
+        Library.RouteInput("Release", function(Input)
             if Keybind.Value == "None" then
                 return
             end
