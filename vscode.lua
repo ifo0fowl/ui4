@@ -63,6 +63,114 @@ local Library do
     local RectNew = Rect.new
 
     local _isMobileDevice = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
+
+    -- Quality tier. Mobile devices and low-end PCs skip the layered glow
+    -- ImageLabels, which are the single most expensive thing this UI draws.
+    local _lowGraphics = (UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled)
+    if not _lowGraphics then
+        pcall(function()
+            _lowGraphics = GameSettings.SavedQualityLevel < Enum.QualityLevel.Level06
+        end)
+    end
+
+    local GuiService = game:GetService("GuiService")
+    local _guiInsetCache = nil
+    local function GetGuiInset()
+        if _guiInsetCache == nil then
+            _guiInsetCache = GuiService:GetGuiInset()
+        end
+        return _guiInsetCache
+    end
+
+    -- The inset changes on mobile when the top bar collapses, so drop the
+    -- cache whenever the viewport resizes instead of pinning stale values.
+    do
+        local cam = Workspace.CurrentCamera
+        local function InvalidateInset()
+            _guiInsetCache = nil
+        end
+        if cam then
+            cam:GetPropertyChangedSignal("ViewportSize"):Connect(InvalidateInset)
+        end
+        Workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(function()
+            _guiInsetCache = nil
+            local newCam = Workspace.CurrentCamera
+            if newCam then
+                pcall(function()
+                    newCam:GetPropertyChangedSignal("ViewportSize"):Connect(InvalidateInset)
+                end)
+            end
+        end)
+    end
+
+    -- Central input router: one UIS connection per event instead of one per
+    -- element. Elements register a handler that only runs while Active, so a
+    -- window with 100 sliders costs 1 connection, not 100.
+    local _InputMoved = { }
+    local _InputPress = { }
+    local _InputRelease = { }
+
+    -- Movement is the high-frequency path, so it is filtered to the only two
+    -- input types that can move something. Press/Release stay unfiltered
+    -- because keybinds need keyboard input.
+    local function RouteMoved(list, Input)
+        local InputType = Input.UserInputType
+        if InputType ~= Enum.UserInputType.MouseMovement and InputType ~= Enum.UserInputType.Touch then
+            return
+        end
+        for Index = #list, 1, -1 do
+            local Entry = list[Index]
+            if Entry.Active() then
+                pcall(Entry.Handler, Input)
+            end
+        end
+    end
+
+    local function RouteAll(list, Input)
+        for Index = #list, 1, -1 do
+            local Entry = list[Index]
+            if Entry.Active() then
+                pcall(Entry.Handler, Input)
+            end
+        end
+    end
+
+    Library.RouteInput = function(self, Kind, Handler, IsActive)
+        local list = _InputMoved
+        if Kind == "Press" then
+            list = _InputPress
+        elseif Kind == "Release" then
+            list = _InputRelease
+        end
+
+        local Entry = {
+            Handler = Handler,
+            Active = IsActive or function() return true end,
+            Dead = false,
+        }
+        TableInsert(list, Entry)
+        return Entry
+    end
+
+    Library.UnrouteInput = function(self, Entry)
+        if Entry and not Entry.Dead then
+            Entry.Dead = true
+        end
+    end
+
+    local RouterConnections = {
+        UserInputService.InputChanged:Connect(function(Input)
+            RouteMoved(_InputMoved, Input)
+        end),
+        UserInputService.InputBegan:Connect(function(Input)
+            RouteAll(_InputPress, Input)
+        end),
+        UserInputService.InputEnded:Connect(function(Input)
+            RouteAll(_InputRelease, Input)
+        end),
+    }
+    Library.RouterConnections = RouterConnections
+
     local _touchIsSwiping = false
     if _isMobileDevice then
         local _touchOrigin = Vector2New(0, 0)
@@ -575,24 +683,21 @@ local Library do
                 end
             end)
         
-            Library:Connect(UserInputService.InputChanged, function(Input)
-                if Input.UserInputType == Enum.UserInputType.MouseMovement or Input.UserInputType == Enum.UserInputType.Touch then
-                    if Dragging then
-                        if not DragConfirmed then
-                            local delta = Input.Position - DragStart
-                            if math.abs(delta.X) > DRAG_DEADZONE or math.abs(delta.Y) > DRAG_DEADZONE then
-                                DragConfirmed = true
-                                DragStart = Input.Position
-                                StartPosition = Gui.Position
-                            else
-                                return
-                            end
-                        end
-                        Set(Input)
+            Library.RouteInput(nil, function(Input)
+                if not Dragging then return end
+                if not DragConfirmed then
+                    local delta = Input.Position - DragStart
+                    if math.abs(delta.X) > DRAG_DEADZONE or math.abs(delta.Y) > DRAG_DEADZONE then
+                        DragConfirmed = true
+                        DragStart = Input.Position
+                        StartPosition = Gui.Position
+                    else
+                        return
                     end
                 end
-            end)
-        
+                Set(Input)
+            end, function() return Dragging end)
+
             return Dragging
         end
 
@@ -888,6 +993,16 @@ local Library do
         end
         self.Threads = {}
 
+        if self.RouterConnections then
+            for _, Conn in ipairs(self.RouterConnections) do
+                pcall(function() Conn:Disconnect() end)
+            end
+            self.RouterConnections = nil
+        end
+        for _, list in ipairs({ _InputMoved, _InputPress, _InputRelease }) do
+            table.clear(list)
+        end
+
         pcall(function()
             if NotifGui then NotifGui:Destroy() end
         end)
@@ -1108,7 +1223,7 @@ local Library do
         Frame = Frame.Instance
 
         local getMouse = UserInputService:GetMouseLocation()
-        local guiInset = game:GetService("GuiService"):GetGuiInset()
+        local guiInset = GetGuiInset()
         
         local mouseX = getMouse.X - guiInset.X
         local mouseY = getMouse.Y - guiInset.Y
@@ -1155,8 +1270,8 @@ local Library do
         Pad.PaddingLeft = UDim.new(0, 8)
         Pad.PaddingRight = UDim.new(0, 8)
         Pad.Parent = TooltipFrame
-        local guiInset = game:GetService("GuiService"):GetGuiInset()
         local hovering = false
+        local inset = GetGuiInset()
         Target.MouseEnter:Connect(function()
             hovering = true
             TooltipFrame.Visible = true
@@ -1165,11 +1280,10 @@ local Library do
             hovering = false
             TooltipFrame.Visible = false
         end)
-        RunService.RenderStepped:Connect(function()
-            if not hovering or not TooltipFrame.Visible then return end
-            local loc = UserInputService:GetMouseLocation()
-            TooltipFrame.Position = UDim2.new(0, loc.X - guiInset.X + 12, 0, loc.Y - guiInset.Y + 12)
-        end)
+        Library.RouteInput(nil, function(Input)
+            if not hovering then return end
+            TooltipFrame.Position = UDim2.new(0, Input.Position.X - inset.X + 12, 0, Input.Position.Y - inset.Y + 12)
+        end, function() return hovering end)
         return TooltipFrame
     end
 
@@ -1481,14 +1595,17 @@ local Library do
                 Items["ColorpickerWindow"].Instance.Visible = true
                 Items["ColorpickerWindow"].Instance.Parent = Library.Holder.Instance
                 
-                RenderStepped = RunService.RenderStepped:Connect(function()
-                    Items["ColorpickerWindow"].Instance.Position = UDim2New(
-                        0, 
-                        Items["ColorpickerButton"].Instance.AbsolutePosition.X, 
-                        0, 
-                        Items["ColorpickerButton"].Instance.AbsolutePosition.Y + Items["ColorpickerButton"].Instance.AbsoluteSize.Y + 5
+                local WindowInst = Items["ColorpickerWindow"].Instance
+                local ButtonInst = Items["ColorpickerButton"].Instance
+
+                RenderStepped = Library.RouteInput(nil, function()
+                    WindowInst.Position = UDim2New(
+                        0,
+                        ButtonInst.AbsolutePosition.X,
+                        0,
+                        ButtonInst.AbsolutePosition.Y + ButtonInst.AbsoluteSize.Y + 5
                     )
-                end)
+                end, function() return Colorpicker.IsOpen end)
 
                 for Index, Value in Library.OpenFrames do 
                         if Value ~= Colorpicker then
@@ -1503,7 +1620,7 @@ local Library do
                 end
 
                 if RenderStepped then 
-                    RenderStepped:Disconnect()
+                    Library:UnrouteInput(RenderStepped)
                     RenderStepped = nil
                 end
             end
@@ -1597,17 +1714,15 @@ local Library do
             end
         end)
 
-        Library:Connect(UserInputService.InputChanged, function(Input)
-            if Input.UserInputType == Enum.UserInputType.MouseMovement or Input.UserInputType == Enum.UserInputType.Touch then
-                if SlidingPalette then 
-                    Colorpicker:SlidePalette(Input)
-                end
-
-                if SlidingHue then
-                    Colorpicker:SlideHue(Input)
-                end
+        Library.RouteInput(nil, function(Input)
+            if SlidingPalette then 
+                Colorpicker:SlidePalette(Input)
             end
-        end)
+
+            if SlidingHue then
+                Colorpicker:SlideHue(Input)
+            end
+        end, function() return SlidingPalette or SlidingHue end)
 
         Library:Connect(UserInputService.InputBegan, function(Input)
             if Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch then
@@ -1772,14 +1887,17 @@ local Library do
                 Items["KeybindWindow"].Instance.Visible = true
                 Items["KeybindWindow"].Instance.Parent = Library.Holder.Instance
                 
-                RenderStepped = RunService.RenderStepped:Connect(function()
-                    Items["KeybindWindow"].Instance.Position = UDim2New(
-                        0, 
-                        Items["KeyButton"].Instance.AbsolutePosition.X, 
-                        0, 
-                        Items["KeyButton"].Instance.AbsolutePosition.Y + Items["KeyButton"].Instance.AbsoluteSize.Y + 5
+                local KeyWindowInst = Items["KeybindWindow"].Instance
+                local KeyButtonInst = Items["KeyButton"].Instance
+
+                RenderStepped = Library.RouteInput(nil, function()
+                    KeyWindowInst.Position = UDim2New(
+                        0,
+                        KeyButtonInst.AbsolutePosition.X,
+                        0,
+                        KeyButtonInst.AbsolutePosition.Y + KeyButtonInst.AbsoluteSize.Y + 5
                     )
-                end)
+                end, function() return Keybind.IsOpen end)
 
                 for Index, Value in Library.OpenFrames do 
                     if Value ~= Keybind then
@@ -1794,7 +1912,7 @@ local Library do
                 end
 
                 if RenderStepped then 
-                    RenderStepped:Disconnect()
+                    Library:UnrouteInput(RenderStepped)
                     RenderStepped = nil
                 end
             end
@@ -1931,7 +2049,7 @@ local Library do
             end)
         end)
 
-        Library:Connect(UserInputService.InputBegan, function(Input)
+        Library.RouteInput(nil, "Press", function(Input)
             if Keybind.Value == "None" then
                 return
             end
@@ -1965,9 +2083,9 @@ local Library do
 
                 Keybind:SetOpen(false)
             end
-        end)
+        end, function() return true end)
 
-        Library:Connect(UserInputService.InputEnded, function(Input)
+        Library.RouteInput(nil, "Release", function(Input)
             if Keybind.Value == "None" then
                 return
             end
@@ -1985,7 +2103,7 @@ local Library do
                     Keybind:Press(true)
                 end
             end
-        end)
+        end, function() return true end)
 
         Items["KeyButton"]:Connect("MouseButton2Down", function()
             Keybind:SetOpen(not Keybind.IsOpen)
@@ -2289,14 +2407,21 @@ if Data.ExpiresText then
 else
     local expiresDuration = tonumber(Data.ExpiresSeconds) or (24 * 60 * 60)
     local endTime = os.time() + math.max(0, math.floor(expiresDuration))
-    
-    RunService.Heartbeat:Connect(function()
+    local lastShown = -1
+
+    -- The label only changes once per second, so skip the Heartbeat wakeups
+    -- that would just rewrite identical text.
+    Library:Connect(RunService.Heartbeat, function()
         local remaining = math.max(0, endTime - os.time())
-    
+        if remaining == lastShown then
+            return
+        end
+        lastShown = remaining
+
         local hours = math.floor(remaining / 3600)
         local minutes = math.floor((remaining % 3600) / 60)
         local seconds = remaining % 60
-    
+
         Countdown.Text = string.format("%02dh %02dm %02ds", hours, minutes, seconds)
     end)
 end
@@ -2456,24 +2581,36 @@ end
                     end
                 end
 
-                local Descendants = Items["MainFrame"].Instance:GetDescendants()
-                TableInsert(Descendants, Items["MainFrame"].Instance)
+                -- Fade targets are cached per window and invalidated when the tree changes,
+                -- so repeated open/close does not re-walk every descendant.
+                local fadeCache = nil
+                local cacheStamp = nil
+                local function GetFadeItems()
+                    local total = Items["MainFrame"].Instance:GetDescendants()
+                    if fadeCache and cacheStamp == #total then
+                        return fadeCache
+                    end
+                    local list = table.create and table.create(#total + 1) or {}
+                    for Index, Value in total do
+                        local TransparencyProperty = Tween:GetProperty(Value)
+                        if TransparencyProperty then
+                            list[#list + 1] = { Item = Value, Props = TransparencyProperty }
+                        end
+                    end
+                    list[#list + 1] = { Item = Items["MainFrame"].Instance, Props = Tween:GetProperty(Items["MainFrame"].Instance) }
+                    fadeCache = list
+                    cacheStamp = #total
+                    return list
+                end
 
                 local NewTween
-
-                for Index, Value in Descendants do 
-                    local TransparencyProperty = Tween:GetProperty(Value)
-
-                    if not TransparencyProperty then
-                        continue 
-                    end
-
-                    if type(TransparencyProperty) == "table" then 
-                        for _, Property in TransparencyProperty do 
-                            NewTween = Tween:FadeItem(Value, Property, Bool, Library.FadeSpeed)
+                for Index, Entry in GetFadeItems() do
+                    if type(Entry.Props) == "table" then 
+                        for _, Property in Entry.Props do 
+                            NewTween = Tween:FadeItem(Entry.Item, Property, Bool, Library.FadeSpeed)
                         end
                     else
-                        NewTween = Tween:FadeItem(Value, TransparencyProperty, Bool, Library.FadeSpeed)
+                        NewTween = Tween:FadeItem(Entry.Item, Entry.Props, Bool, Library.FadeSpeed)
                     end
                 end
                 
@@ -3441,16 +3578,13 @@ end
                 end
             end)
 
-            Library:Connect(UserInputService.InputChanged, function(Input)
-                if Input.UserInputType == Enum.UserInputType.MouseMovement or Input.UserInputType == Enum.UserInputType.Touch then
-                    if Slider.Sliding then
-                        local SizeX = (Input.Position.X - Items["RealSlider"].Instance.AbsolutePosition.X) / Items["RealSlider"].Instance.AbsoluteSize.X
-                        local Value = ((Slider.Max - Slider.Min) * SizeX) + Slider.Min
-
-                        Slider:Set(Value)
-                    end
-                end
-            end)
+            local RealSliderInst = Items["RealSlider"].Instance
+            Library.RouteInput(nil, function(Input)
+                if not Slider.Sliding then return end
+                local SizeX = (Input.Position.X - RealSliderInst.AbsolutePosition.X) / RealSliderInst.AbsoluteSize.X
+                local Value = ((Slider.Max - Slider.Min) * SizeX) + Slider.Min
+                Slider:Set(Value)
+            end, function() return Slider.Sliding end)
 
             if Slider.Default then
                 Slider:Set(Slider.Default)
@@ -3737,7 +3871,7 @@ end
 
             local Debounce = false 
             local RenderStepped 
-            local _guiInset = game:GetService("GuiService"):GetGuiInset()
+            local _guiInset = GetGuiInset()
 
             function Dropdown:SetOpen(Bool)
                 if Debounce then 
@@ -3771,13 +3905,12 @@ end
                         end
                     end)
                     
-                    -- Position-only follower. Size is event-driven now (see
-                    -- AbsoluteContentSize signal), so this loop stays cheap:
-                    -- cached instances, no per-frame FindFirstChildOfClass.
+                    -- Position-only follower driven by the shared input router, so an open
+                    -- dropdown costs no extra RenderStepped connection.
                     local lastPosX = -1
                     local lastPosY = -1
                     local lastW = -1
-                    RenderStepped = RunService.RenderStepped:Connect(function()
+                    RenderStepped = Library.RouteInput(nil, function()
                         local realPos = RealDropdownInst.AbsolutePosition
                         local realSize = RealDropdownInst.AbsoluteSize
                         local posX = realPos.X - _guiInset.X
@@ -3787,13 +3920,12 @@ end
                             lastPosY = posY
                             lastW = realSize.X
                             OptionHolderInst.Position = UDim2New(0, posX, 0, posY)
-                            -- Keep width glued without a full canvas recompute.
                             local cur = OptionHolderInst.Size
                             if cur.X.Offset ~= realSize.X then
                                 OptionHolderInst.Size = UDim2New(0, realSize.X, cur.Y.Scale, cur.Y.Offset)
                             end
                         end
-                    end)
+                    end, function() return Dropdown.IsOpen end)
 
                     local toClose = {}
                     for Index, Value in Library.OpenFrames do 
@@ -3811,8 +3943,8 @@ end
                         Library.OpenFrames[Dropdown] = nil
                     end
 
-                    if RenderStepped then 
-                        RenderStepped:Disconnect()
+                    if RenderStepped then
+                        Library:UnrouteInput(RenderStepped)
                         RenderStepped = nil
                     end
                 end
@@ -5273,74 +5405,75 @@ function Library:CreateSettingsPage(Window, Watermark)
                     local lp = game:GetService("Players").LocalPlayer
                     local name = lp.Name
                     local displayName = lp.DisplayName
-                    
+
+                    local tracked = setmetatable({}, { __mode = "k" })
+                    local roots = setmetatable({}, { __mode = "k" })
+
+                    local function isText(v)
+                        local c = v.ClassName
+                        return c == "TextLabel" or c == "TextButton" or c == "TextBox"
+                    end
+
                     local function censor(v)
-                        if (v:IsA("TextLabel") or v:IsA("TextButton") or v:IsA("TextBox")) then
-                            if v.Text:find(name, 1, true) or v.Text:find(displayName, 1, true) then
-                                v.Text = v.Text:gsub(name, "Streamer"):gsub(displayName, "Streamer")
+                        local text = v.Text
+                        if not text then return end
+                        if text:find(name, 1, true) or text:find(displayName, 1, true) then
+                            tracked[v] = true
+                            v.Text = text:gsub(name, "Streamer", 1):gsub(displayName, "Streamer", 1)
+                        end
+                    end
+
+                    local function uncensor(v)
+                        local text = v.Text
+                        if not text then return end
+                        if text:find("Streamer", 1, true) then
+                            v.Text = text:gsub("Streamer", displayName)
+                            tracked[v] = nil
+                        end
+                    end
+
+                    -- Only text instances are ever affected, so watch those
+                    -- properties directly instead of re-walking every
+                    -- descendant of CoreGui each second.
+                    local watched = { }
+                    local function watch(root)
+                        if not root or roots[root] then return end
+                        roots[root] = true
+                        for _, v in ipairs(root:GetDescendants()) do
+                            if isText(v) and not watched[v] then
+                                watched[v] = true
+                                v:GetPropertyChangedSignal("Text"):Connect(function()
+                                    if getgenv().StreamerModeEnabled then censor(v) end
+                                end)
                             end
                         end
+                        root.ChildAdded:Connect(function(child)
+                            task.defer(function() watch(child) end)
+                        end)
+                    end
+
+                    local pg = lp:WaitForChild("PlayerGui", 10)
+                    if pg then watch(pg) end
+
+                    local coreGui = gethui and gethui() or game:GetService("CoreGui")
+                    if coreGui then pcall(watch, coreGui) end
+
+                    for _, p in ipairs(game:GetService("Players"):GetPlayers()) do
+                        if p.Character then pcall(watch, p.Character) end
                     end
 
                     while getgenv().StreamerModeEnabled do
-                        local pg = lp:FindFirstChild("PlayerGui")
-                        if pg then
-                            for _, v in ipairs(pg:GetDescendants()) do
-                                censor(v)
-                            end
-                        end
-                        
                         for _, p in ipairs(game:GetService("Players"):GetPlayers()) do
-                            if p.Character then
-                                for _, v in ipairs(p.Character:GetDescendants()) do
-                                    censor(v)
-                                end
-                            end
+                            if p.Character then pcall(watch, p.Character) end
                         end
-                        
-                        local coreGui = gethui and gethui() or game:GetService("CoreGui")
-                        if coreGui then
-                            pcall(function()
-                                for _, v in ipairs(coreGui:GetDescendants()) do
-                                    censor(v)
-                                end
-                            end)
-                        end
-                        
-                        task.wait(1)
-                    end
-                    
-                    -- Revert the text when toggled off
-                    local function uncensor(v)
-                        if (v:IsA("TextLabel") or v:IsA("TextButton") or v:IsA("TextBox")) then
-                            if v.Text:find("Streamer", 1, true) then
-                                v.Text = v.Text:gsub("Streamer", displayName)
-                            end
-                        end
+                        task.wait(2)
                     end
 
-                    local pg = lp:FindFirstChild("PlayerGui")
-                    if pg then
-                        for _, v in ipairs(pg:GetDescendants()) do
-                            uncensor(v)
+                    for v in pairs(watched) do
+                        if v.Parent then
+                            pcall(function() v:GetPropertyChangedSignal("Text"):Disconnect() end)
+                            pcall(uncensor, v)
                         end
-                    end
-                    
-                    for _, p in ipairs(game:GetService("Players"):GetPlayers()) do
-                        if p.Character then
-                            for _, v in ipairs(p.Character:GetDescendants()) do
-                                uncensor(v)
-                            end
-                        end
-                    end
-                    
-                    local coreGui = gethui and gethui() or game:GetService("CoreGui")
-                    if coreGui then
-                        pcall(function()
-                            for _, v in ipairs(coreGui:GetDescendants()) do
-                                uncensor(v)
-                            end
-                        end)
                     end
                 end)
             end
@@ -5563,6 +5696,9 @@ Library.Notification = Library.Notify
 Library.Toast = Library.Notify
 
 do
+    local GLOW_ASSET = "rbxassetid://18245826428"
+    local GLOW_URL = "http://www.roblox.com/asset/?id=18245826428"
+
     local function PruneOverlays(Root)
         for _, inst in ipairs(Root:GetDescendants()) do
             if inst:IsA("ImageLabel") then
@@ -5575,16 +5711,33 @@ do
         end
     end
 
+    -- Glow sprites are the most expensive thing this UI draws (6 extra
+    -- sliced ImageLabels per section). Drop them on low-end hardware.
+    local function PruneGlows(Root)
+        if not _lowGraphics then return end
+        for _, inst in ipairs(Root:GetDescendants()) do
+            if inst:IsA("ImageLabel") then
+                local img = inst.Image
+                if img == GLOW_ASSET or img == GLOW_URL then
+                    inst:Destroy()
+                end
+            end
+        end
+    end
+
     local origWindow = Library.Window
     Library.Window = function(self, Data)
         local Win = origWindow(self, Data)
         task.defer(function()
             if Library and Library.Holder and Library.Holder.Instance then
+                PruneGlows(Library.Holder.Instance)
                 PruneOverlays(Library.Holder.Instance)
             end
         end)
         return Win
     end
+
+    Library.LowGraphics = _lowGraphics
 end
 
 getgenv().Library = Library
