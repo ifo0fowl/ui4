@@ -964,7 +964,9 @@ local Library do
     end
 
     Library.AddToTheme = function(self, Item, Properties)
-        Item = Item.Instance or Item 
+        if type(Item) == "table" and Item.Instance then
+            Item = Item.Instance
+        end
 
         local ThemeData = {
             Item = Item,
@@ -2155,7 +2157,6 @@ local Library do
                     stroke.Transparency = 0.4
                     stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
                     stroke.Parent = Items["MainFrame"].Instance
-                    Library:AddToTheme(stroke, {Color = 'OutlineBright'})
                 end
 
                 -- Top accent gradient line
@@ -2181,7 +2182,6 @@ local Library do
                         NumberSequenceKeypoint.new(1, 1)
                     }
                     g.Parent = topLine
-                    Library:AddToTheme(topLine, {BackgroundColor3 = 'Accent'})
                 end
 
                 -- Drop shadow
