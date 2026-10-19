@@ -2135,6 +2135,73 @@ local Library do
                     BackgroundColor3 = Library.Theme["Background"]
                 }):AddToTheme({BackgroundColor3 = 'Background'})
 
+                -- Subtle depth gradient + crisp outline for a more premium look
+                do
+                    local g = Instance.new("UIGradient")
+                    g.Color = ColorSequence.new{
+                        ColorSequenceKeypoint.new(0, Color3.fromRGB(255,255,255)),
+                        ColorSequenceKeypoint.new(1, Color3.fromRGB(200,200,215))
+                    }
+                    g.Transparency = NumberSequence.new{
+                        NumberSequenceKeypoint.new(0, 0.97),
+                        NumberSequenceKeypoint.new(1, 0.94)
+                    }
+                    g.Rotation = 135
+                    g.Parent = Items["MainFrame"].Instance
+
+                    local stroke = Instance.new("UIStroke")
+                    stroke.Color = Library.Theme["OutlineBright"] or Library.Theme["Outline"]
+                    stroke.Thickness = 1
+                    stroke.Transparency = 0.4
+                    stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+                    stroke.Parent = Items["MainFrame"].Instance
+                    Library:AddToTheme(stroke, {Color = 'OutlineBright'})
+                end
+
+                -- Top accent gradient line
+                do
+                    local topLine = Instance.new("Frame")
+                    topLine.Name = "\0"
+                    topLine.AnchorPoint = Vector2.new(0.5, 0)
+                    topLine.Position = UDim2.new(0.5, 0, 0, 0)
+                    topLine.Size = UDim2.new(1, 0, 0, 2)
+                    topLine.BackgroundColor3 = Library.Theme["Accent"]
+                    topLine.BorderSizePixel = 0
+                    topLine.ZIndex = 2
+                    topLine.Parent = Items["MainFrame"].Instance
+                    local g = Instance.new("UIGradient")
+                    g.Color = ColorSequence.new{
+                        ColorSequenceKeypoint.new(0, Color3.fromRGB(0,0,0)),
+                        ColorSequenceKeypoint.new(0.5, Color3.fromRGB(255,255,255)),
+                        ColorSequenceKeypoint.new(1, Color3.fromRGB(0,0,0))
+                    }
+                    g.Transparency = NumberSequence.new{
+                        NumberSequenceKeypoint.new(0, 1),
+                        NumberSequenceKeypoint.new(0.5, 0),
+                        NumberSequenceKeypoint.new(1, 1)
+                    }
+                    g.Parent = topLine
+                    Library:AddToTheme(topLine, {BackgroundColor3 = 'Accent'})
+                end
+
+                -- Drop shadow
+                do
+                    local shadow = Instance.new("ImageLabel")
+                    shadow.Name = "\0"
+                    shadow.AnchorPoint = Vector2.new(0.5, 0.5)
+                    shadow.Position = UDim2.new(0.5, 0, 0.5, 6)
+                    shadow.Size = UDim2.new(1, 40, 1, 40)
+                    shadow.BackgroundTransparency = 1
+                    shadow.Image = "rbxassetid://6015897843"
+                    shadow.ImageColor3 = Color3.fromRGB(0, 0, 0)
+                    shadow.ImageTransparency = 0.5
+                    shadow.ScaleType = Enum.ScaleType.Slice
+                    shadow.SliceCenter = Rect.new(49, 49, 450, 450)
+                    shadow.ZIndex = 0
+                    shadow.Parent = Items["MainFrame"].Instance.Parent
+                    Items["MainFrame"].Instance.ZIndex = 1
+                end
+
                 local uiScale = Instance.new("UIScale")
                 uiScale.Parent = Items["MainFrame"].Instance
                 if isMobile then
@@ -2142,6 +2209,7 @@ local Library do
                 else
                     uiScale.Scale = 1.0
                 end
+                Items["UIScale"] = uiScale
 
                 Items["MainFrame"]:MakeDraggable()
                 local minResizeX = isMobile and 320 or 500
@@ -2406,6 +2474,16 @@ end
 
                 if Window.IsOpen then 
                     Items["MainFrame"].Instance.Visible = true 
+                    local targetScale = isMobile and math.clamp(viewport.Y / 420, 0.70, 0.90) or 1.0
+                    if Items["UIScale"] then
+                        Items["UIScale"].Scale = 0.92
+                        TweenService:Create(Items["UIScale"], TweenInfo.new(Library.FadeSpeed, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Scale = targetScale}):Play()
+                    end
+                else
+                    if Items["UIScale"] then
+                        local targetScale = isMobile and math.clamp(viewport.Y / 420, 0.70, 0.90) or 1.0
+                        TweenService:Create(Items["UIScale"], TweenInfo.new(Library.FadeSpeed, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Scale = 0.92}):Play()
+                    end
                 end
 
                 local Descendants = Items["MainFrame"].Instance:GetDescendants()
@@ -2549,7 +2627,36 @@ end
                     BorderSizePixel = 0,
                     BackgroundColor3 = Library.Theme["Accent"]
                 }):AddToTheme({BackgroundColor3 = 'Accent'})
-                
+
+                Items["AccentBar"] = Instances:Create("Frame", {
+                    Parent = Items["Inactive"].Instance,
+                    Name = "\0",
+                    AnchorPoint = Vector2New(0, 0.5),
+                    Position = UDim2New(0, 0, 0.5, 0),
+                    BackgroundTransparency = 1,
+                    BorderColor3 = FromRGB(0, 0, 0),
+                    Size = UDim2New(0, 3, 0, 0),
+                    BorderSizePixel = 0,
+                    BackgroundColor3 = Library.Theme["Accent"]
+                }):AddToTheme({BackgroundColor3 = 'Accent'})
+                Instances:Create("UICorner", {
+                    Parent = Items["AccentBar"].Instance,
+                    Name = "\0",
+                    CornerRadius = UDimNew(1, 0)
+                })
+
+                -- Hover highlight
+                Items["Inactive"]:Connect("MouseEnter", function()
+                    if not Page.Active then
+                        Items["Background"]:Tween(TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = 0.85, Size = UDim2New(1, 0, 0, 35)})
+                    end
+                end)
+                Items["Inactive"]:Connect("MouseLeave", function()
+                    if not Page.Active then
+                        Items["Background"]:Tween(TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = 1, Size = UDim2New(0, 0, 0, 35)})
+                    end
+                end)
+
                 Items["Icon"] = Instances:Create("ImageLabel", {
                     Parent = Items["Inactive"].Instance,
                     Name = "\0",
@@ -2654,6 +2761,7 @@ end
 
                 if Page.Active then
                     Items["Background"]:Tween(nil, {BackgroundTransparency = 0, Size = UDim2New(1, 0, 0, 35)})
+                    Items["AccentBar"]:Tween(nil, {BackgroundTransparency = 0, Size = UDim2New(0, 3, 0, 22)})
 
                     Items["Text"]:ChangeItemTheme({TextColor3 = function() return FromRGB(0, 0, 0) end})
                     Items["Icon"]:ChangeItemTheme({ImageColor3 = function() return FromRGB(0, 0, 0) end})
@@ -2662,6 +2770,7 @@ end
                     Items["Icon"]:Tween(nil, {ImageColor3 = FromRGB(0, 0, 0), ImageTransparency = 0})
                 else
                     Items["Background"]:Tween(nil, {BackgroundTransparency = 1, Size = UDim2New(0, 0, 0, 35)})
+                    Items["AccentBar"]:Tween(nil, {BackgroundTransparency = 1, Size = UDim2New(0, 3, 0, 0)})
 
                     Items["Text"]:ChangeItemTheme({TextColor3 = "Text"})
                     Items["Icon"]:ChangeItemTheme({ImageColor3 = "Text"})
@@ -3118,24 +3227,6 @@ end
             end
 
             function Button:Press()
-                pcall(function()
-                    local ripple = Instance.new("Frame")
-                    ripple.Name = "\0"
-                    ripple.BackgroundColor3 = Library.Theme.Accent
-                    ripple.BackgroundTransparency = 0.6
-                    ripple.BorderSizePixel = 0
-                    ripple.AnchorPoint = Vector2.new(0.5, 0.5)
-                    ripple.Position = UDim2.new(0.5, 0, 0.5, 0)
-                    ripple.Size = UDim2.new(0, 0, 0, 0)
-                    ripple.ZIndex = 5
-                    ripple.Parent = Items["Button"].Instance
-                    Instance.new("UICorner", ripple).CornerRadius = UDim.new(1, 0)
-                    TweenService:Create(ripple, TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-                        Size = UDim2.new(0, Items["Button"].Instance.AbsoluteSize.X * 2, 0, Items["Button"].Instance.AbsoluteSize.X * 2),
-                        BackgroundTransparency = 1
-                    }):Play()
-                    task.delay(0.45, function() pcall(function() ripple:Destroy() end) end)
-                end)
                 if Items["Stroke"] then
                     pcall(function()
                         Items["Stroke"]:ChangeItemTheme({Color = "Accent"})
@@ -3154,6 +3245,13 @@ end
 
             Items["Button"]:Connect("MouseButton1Down", function()
                 Button:Press()
+            end)
+
+            Items["Button"]:Connect("MouseEnter", function()
+                Items["Button"]:Tween(TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundColor3 = Library.Theme.ElementHover})
+            end)
+            Items["Button"]:Connect("MouseLeave", function()
+                Items["Button"]:Tween(TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundColor3 = Library.Theme.Element})
             end)
 
             if Data.Tooltip then
@@ -4871,7 +4969,7 @@ function Library.Notifications:RefreshNotifications()
     local offset = 20
     for _, v in ipairs(self.Notifs) do
         local ySize = math.max(v.AbsoluteSize.Y, 36)
-        game:GetService("TweenService"):Create(v, TweenInfo.new(0.25, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {Position = UDim2.new(1, -20, 1, -offset)}):Play()
+        game:GetService("TweenService"):Create(v, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Position = UDim2.new(1, -20, 1, -offset)}):Play()
         offset = offset + (ySize + 8)
     end
 end
