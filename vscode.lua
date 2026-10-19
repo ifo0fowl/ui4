@@ -2137,20 +2137,8 @@ local Library do
                     BackgroundColor3 = Library.Theme["Background"]
                 }):AddToTheme({BackgroundColor3 = 'Background'})
 
-                -- Subtle depth gradient + crisp outline for a more premium look
+                -- Crisp outline for a more premium look
                 do
-                    local g = Instance.new("UIGradient")
-                    g.Color = ColorSequence.new{
-                        ColorSequenceKeypoint.new(0, Color3.fromRGB(255,255,255)),
-                        ColorSequenceKeypoint.new(1, Color3.fromRGB(200,200,215))
-                    }
-                    g.Transparency = NumberSequence.new{
-                        NumberSequenceKeypoint.new(0, 0.97),
-                        NumberSequenceKeypoint.new(1, 0.94)
-                    }
-                    g.Rotation = 135
-                    g.Parent = Items["MainFrame"].Instance
-
                     local stroke = Instance.new("UIStroke")
                     stroke.Color = Library.Theme["OutlineBright"] or Library.Theme["Outline"]
                     stroke.Thickness = 1
