@@ -3,6 +3,7 @@ if getgenv().Library then
     getgenv().Library:Unload()
 end
 
+local NotifGui
 local Library do 
     local Workspace = game:GetService("Workspace")
     local UserInputService = game:GetService("UserInputService")
@@ -5060,8 +5061,13 @@ function Library.Sections:AddLabel(TextOrData)
 end
 
 -- Notification System
-local NotifGui = Instance.new("ScreenGui")
+local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
+NotifGui = Instance.new("ScreenGui")
 NotifGui.Name = "LibraryNotifications"
+NotifGui.DisplayOrder = 100
+NotifGui.ResetOnSpawn = false
+NotifGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
 local success = pcall(function()
     local coreGui = gethui and gethui() or game:GetService("CoreGui")
@@ -5096,12 +5102,15 @@ function Library.Notifications:RefreshNotifications()
     end
 end
 
-function Library.Notifications:Create(properties)
-    properties = properties or {}
+function Library.Notifications:Create(properties, duration)
+    if type(properties) ~= "table" then
+        properties = { Name = tostring(properties or "Notification"), LifeTime = duration }
+    end
     local Title = properties.Title or properties.title or properties.Name or properties.name or "Notification"
     local Description = properties.Description or properties.description or properties.Text or properties.text or ""
-    local Lifetime = properties.LifeTime or properties.lifetime or properties.Duration or 3
-    local NotifType = string.lower(properties.Type or properties.type or "info")
+    local Lifetime = tonumber(properties.LifeTime or properties.Lifetime or properties.lifetime or properties.Duration or properties.duration) or 3
+    Lifetime = math.max(Lifetime, 0.1)
+    local NotifType = string.lower(tostring(properties.Type or properties.type or "info"))
     local Color = (NotifType == "success" and Color3.fromRGB(60, 220, 140))
         or (NotifType == "warning" and Color3.fromRGB(255, 190, 60))
         or (NotifType == "error" and Color3.fromRGB(255, 70, 95))
@@ -5207,7 +5216,7 @@ function Library.Notifications:Create(properties)
         dismissed = true
         local idx = table.find(self.Notifs, Outline)
         if idx then table.remove(self.Notifs, idx) end
-        TweenService:Create(Outline, TweenInfo.new(0.2, Enum.EasingStyle.Quint, Enum.EasingDirection.In), {Position = UDim2.new(1, 320, Outline.Position.Y.Offset)}):Play()
+        TweenService:Create(Outline, TweenInfo.new(0.2, Enum.EasingStyle.Quint, Enum.EasingDirection.In), {Position = UDim2.new(1, 320, 1, Outline.Position.Y.Offset)}):Play()
         task.wait(0.2)
         pcall(function() Outline:Destroy() end)
         self:RefreshNotifications()
